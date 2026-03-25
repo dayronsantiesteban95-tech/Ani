@@ -198,7 +198,7 @@ export async function syncTaskToLoad(
     // Upsert using reference_number as the conflict key
     const { error } = await supabase
         .from("daily_loads")
-        .upsert(payload as any, { onConflict: "reference_number" });
+        .upsert(payload as unknown as Record<string, string | number | boolean | null | undefined>, { onConflict: "reference_number" });
 
     if (error) throw new Error(`Sync failed for ${task.shortId}: ${error.message}`);
     return payload;
