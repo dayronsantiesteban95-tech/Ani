@@ -187,7 +187,7 @@ export default function Pipeline() {
     }
     setFormErrors({});
 
-    const payload: any = {
+    const payload: Omit<Lead, "id" | "stage" | "created_at" | "main_lanes"> = {
       company_name: companyName,
       contact_person: contactPerson,
       phone: phone || null,
