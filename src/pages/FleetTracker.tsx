@@ -90,7 +90,6 @@ const HUBS = CITY_HUBS;
 export default function FleetTracker() {
     const { user } = useAuth();
     const { toast } = useToast();
-    const db = supabase;
 
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
     const [maintenance, setMaintenance] = useState<MaintenanceRecord[]>([]);
@@ -109,9 +108,9 @@ export default function FleetTracker() {
     // ── Fetch ────────────────────────────────
     const fetchAll = useCallback(async () => {
         const [v, m, d] = await Promise.all([
-            db.from("vehicles").select("*").order("vehicle_name"),
-            db.from("vehicle_maintenance").select("*").order("service_date", { ascending: false }),
-            db.from("drivers").select("*").order("full_name"),
+            supabase.from("vehicles").select("*").order("vehicle_name"),
+            supabase.from("vehicle_maintenance").select("*").order("service_date", { ascending: false }),
+            supabase.from("drivers").select("*").order("full_name"),
         ]);
         if (v.data) setVehicles(v.data);
         if (m.data) setMaintenance(m.data);
@@ -165,8 +164,8 @@ export default function FleetTracker() {
             ...(editVeh ? {} : { created_by: user!.id }),
         };
         const { error } = editVeh
-            ? await db.from("vehicles").update(payload).eq("id", editVeh.id)
-            : await db.from("vehicles").insert(payload);
+            ? await supabase.from("vehicles").update(payload).eq("id", editVeh.id)
+            : await supabase.from("vehicles").insert(payload);
         if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
         else { toast({ title: editVeh ? "Vehicle updated" : "Vehicle added" }); setVehDialog(false); setEditVeh(null); fetchAll(); }
     };
@@ -189,8 +188,8 @@ export default function FleetTracker() {
             ...(editMaint ? {} : { created_by: user!.id }),
         };
         const { error } = editMaint
-            ? await db.from("vehicle_maintenance").update(payload).eq("id", editMaint.id)
-            : await db.from("vehicle_maintenance").insert(payload);
+            ? await supabase.from("vehicle_maintenance").update(payload).eq("id", editMaint.id)
+            : await supabase.from("vehicle_maintenance").insert(payload);
         if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
         else { toast({ title: editMaint ? "Record updated" : "Maintenance logged" }); setMaintDialog(false); setEditMaint(null); fetchAll(); }
     };
@@ -214,8 +213,8 @@ export default function FleetTracker() {
             ...(editDrv ? {} : { created_by: user!.id }),
         };
         const { error } = editDrv
-            ? await db.from("drivers").update(payload).eq("id", editDrv.id)
-            : await db.from("drivers").insert(payload);
+            ? await supabase.from("drivers").update(payload).eq("id", editDrv.id)
+            : await supabase.from("drivers").insert(payload);
         if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
         else { toast({ title: editDrv ? "Driver updated" : "Driver added" }); setDrvDialog(false); setEditDrv(null); fetchAll(); }
     };
@@ -224,7 +223,7 @@ export default function FleetTracker() {
     const handleDelete = async () => {
         if (!deleteTarget) return;
         const table = deleteTarget.type === "vehicle" ? "vehicles" : deleteTarget.type === "maintenance" ? "vehicle_maintenance" : "drivers";
-        const { error } = await db.from(table).delete().eq("id", deleteTarget.id);
+        const { error } = await supabase.from(table).delete().eq("id", deleteTarget.id);
         setDeleteTarget(null);
         if (error) {
             toast({ title: "Delete failed", description: error.message, variant: "destructive" });
