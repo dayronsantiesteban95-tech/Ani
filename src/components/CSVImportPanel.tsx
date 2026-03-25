@@ -11,6 +11,7 @@
  * ═══════════════════════════════════════════════════════════
  */
 import { useState, useCallback, useRef } from "react";
+import type { Database } from "@/integrations/supabase/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -114,33 +115,6 @@ function autoMapColumns(csvHeaders: string[]): Record<number, string> {
     return mapping;
 }
 
-// ─── Export to CSV ──────────────────────────────────
-
-export function exportToCSV(rows: Record<string, any>[], filename: string) {
-    if (rows.length === 0) return;
-    const headers = Object.keys(rows[0]);
-    const csv = [
-        headers.join(","),
-        ...rows.map((row) =>
-            headers.map((h) => {
-                const val = row[h] ?? "";
-                const str = String(val);
-                return str.includes(",") || str.includes('"') || str.includes("\n")
-                    ? `"${str.replace(/"/g, '""')}"`
-                    : str;
-            }).join(","),
-        ),
-    ].join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
-}
-
 // ═══════════════════════════════════════════════════════════
 
 interface CSVImportPanelProps {
@@ -199,10 +173,11 @@ export default function CSVImportPanel({ onImportComplete, loadDate, hub }: CSVI
         const today = loadDate ?? new Date().toISOString().split("T")[0];
 
         // Build all payloads first, then batch insert
-        const payloads: Record<string, any>[] = [];
+        type DailyLoadInsert = Database["public"]["Tables"]["daily_loads"]["Insert"];
+        const payloads: DailyLoadInsert[] = [];
 
         for (const row of csvRows) {
-            const payload: Record<string, any> = {
+            const payload: Record<string, string | number | null> = {
                 load_date: today,
                 hub: hub ?? "phoenix",
                 status: "pending",
@@ -221,7 +196,7 @@ export default function CSVImportPanel({ onImportComplete, loadDate, hub }: CSVI
                     }
                 }
             }
-            payloads.push(payload);
+            payloads.push(payload as unknown as DailyLoadInsert);
         }
 
         // Batch insert in chunks of 50 for performance

@@ -41,7 +41,8 @@ import {
 import LiveDriverMap from "@/components/LiveDriverMap";
 import IntegrationSyncPanel from "@/components/IntegrationSyncPanel";
 import RouteOptimizerPanel from "@/components/RouteOptimizerPanel";
-import CSVImportPanel, { exportToCSV } from "@/components/CSVImportPanel";
+import CSVImportPanel from "@/components/CSVImportPanel";
+import { exportToCSV } from "@/lib/quickLoadHelpers";
 import QuickLoadEntry from "@/components/QuickLoadEntry";
 import { cloneLoadData } from "@/lib/quickLoadHelpers";
 import AutoDispatchPanel from "@/components/AutoDispatchPanel";
