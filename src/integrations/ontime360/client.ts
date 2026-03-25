@@ -175,7 +175,7 @@ export async function syncOrderToLoad(
 
     const { error } = await supabase
         .from("daily_loads")
-        .upsert(payload as any, { onConflict: "reference_number" });
+        .upsert(payload, { onConflict: "reference_number" });
 
     if (error) throw new Error(`OT360 sync failed for ${order.trackingNumber}: ${error.message}`);
     return payload;
