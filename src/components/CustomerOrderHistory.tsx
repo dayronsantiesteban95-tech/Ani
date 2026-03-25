@@ -9,7 +9,7 @@
  * Inspired by Onfleet's recipient history feature.
  * ═══════════════════════════════════════════════════════════
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,19 @@ interface CustomerStats {
     lastOrder: string;
 }
 
+interface DailyLoadRow {
+    id: string;
+    reference_number: string | null;
+    load_date: string;
+    status: string;
+    delivery_address: string | null;
+    packages: number;
+    revenue: number | null;
+    service_type: string;
+    pod_confirmed: boolean;
+    driver_id: string | null;
+}
+
 interface CustomerOrderHistoryProps {
     clientName?: string;
     onClone?: (load: OrderHistoryEntry) => void;
@@ -67,12 +80,12 @@ export default function CustomerOrderHistory({
     // Fetch unique client names for autocomplete
     useEffect(() => {
         const fetchClients = async () => {
-            const { data } = await (supabase as any)
+            const { data } = (await supabase
                 .from("daily_loads")
                 .select("client_name")
                 .not("client_name", "is", null)
                 .order("created_at", { ascending: false })
-                .limit(200) as { data: { client_name: string }[] | null };
+                .limit(200)) as unknown as { data: { client_name: string }[] | null };
 
             if (data) {
                 const unique = [...new Set(data.map((d) => d.client_name).filter(Boolean))];
@@ -83,7 +96,7 @@ export default function CustomerOrderHistory({
     }, []);
 
     // Fetch order history
-    const fetchHistory = async (name: string) => {
+    const fetchHistory = useCallback(async (name: string) => {
         if (!name.trim()) return;
         setLoading(true);
         const sanitized = name.trim()
@@ -91,7 +104,7 @@ export default function CustomerOrderHistory({
             .replace(/_/g, "\\_"); // Escape SQL single-char wildcard
         setClientName(name.trim());
 
-        const { data } = await (supabase as any)
+        const { data } = (await supabase
             .from("daily_loads")
             .select(`
         id, reference_number, load_date, status,
@@ -100,14 +113,14 @@ export default function CustomerOrderHistory({
       `)
             .ilike("client_name", `%${sanitized}%`)
             .order("load_date", { ascending: false })
-            .limit(100) as { data: any[] | null };
+            .limit(100)) as unknown as { data: DailyLoadRow[] | null };
 
         if (data && data.length > 0) {
             setOrders(data);
 
             // Calculate stats
-            const totalRevenue = data.reduce((sum: number, d: any) => sum + (d.revenue ?? 0), 0);
-            const deliveredCount = data.filter((d: any) => d.status === "delivered").length;
+            const totalRevenue = data.reduce((sum: number, d: DailyLoadRow) => sum + (d.revenue ?? 0), 0);
+            const deliveredCount = data.filter((d: DailyLoadRow) => d.status === "delivered").length;
 
             // Top addresses
             const addrMap = new Map<string, number>();
@@ -136,12 +149,12 @@ export default function CustomerOrderHistory({
             setStats(null);
         }
         setLoading(false);
-    };
+    }, []);
 
     // Auto-fetch if initial client provided
     useEffect(() => {
         if (initialClient) fetchHistory(initialClient);
-    }, [initialClient]);
+    }, [initialClient, fetchHistory]);
 
     return (
         <Card className="border-0 shadow-sm">
