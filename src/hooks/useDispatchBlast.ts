@@ -83,12 +83,12 @@ export function useDispatchBlast() {
 
     // ── Fetch all active + recent blasts ──────────
     const fetchBlasts = useCallback(async () => {
-        const { data: blastRows, error } = await (supabase as any)
+        const { data: blastRows, error } = await supabase
             .from("dispatch_blasts")
             .select("*")
             .or("status.eq.active,created_at.gte." + new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
             .order("created_at", { ascending: false })
-            .limit(50) as { data: DispatchBlast[] | null; error: any };
+            .limit(50) as unknown as { data: DispatchBlast[] | null; error: unknown };
 
         if (error || !blastRows) {
             console.error("Failed to fetch blasts:", error);
@@ -98,11 +98,11 @@ export function useDispatchBlast() {
 
         // Fetch responses for these blasts
         const blastIds = blastRows.map((b) => b.id);
-        const { data: responseRows } = await (supabase as any)
+        const { data: responseRows } = await supabase
             .from("blast_responses")
             .select("*")
             .in("blast_id", blastIds.length > 0 ? blastIds : ["__none__"])
-            .order("notified_at", { ascending: true }) as { data: BlastResponse[] | null };
+            .order("notified_at", { ascending: true }) as unknown as { data: BlastResponse[] | null };
 
         const responsesByBlast = new Map<string, BlastResponse[]>();
         for (const r of responseRows ?? []) {
@@ -154,7 +154,7 @@ export function useDispatchBlast() {
                 : new Date(Date.now() + 30 * 60_000).toISOString(); // default 30 min
 
             // 1. Create the blast
-            const { data: blast, error: blastErr } = await (supabase as any)
+            const { data: blast, error: blastErr } = await supabase
                 .from("dispatch_blasts")
                 .insert({
                     load_id: params.loadId,
@@ -167,7 +167,7 @@ export function useDispatchBlast() {
                     drivers_notified: params.driverIds.length,
                 })
                 .select("*")
-                .single() as { data: DispatchBlast | null; error: any };
+                .single() as unknown as { data: DispatchBlast | null; error: { message: string } | null };
 
             if (blastErr || !blast) {
                 toast({
@@ -185,16 +185,16 @@ export function useDispatchBlast() {
                 status: "pending",
             }));
 
-            const { error: respErr } = await (supabase as any)
+            const { error: respErr } = await supabase
                 .from("blast_responses")
-                .insert(responseRows);
+                .insert(responseRows) as unknown as { error: unknown };
 
             if (respErr) {
                 console.error("Failed to create response rows:", respErr);
             }
 
             // 3. Update load status to show it's being blasted
-            await (supabase as any)
+            await supabase
                 .from("daily_loads")
                 .update({
                     status: "blasted",
@@ -215,16 +215,16 @@ export function useDispatchBlast() {
     // ── Cancel a blast ────────────────────────────
     const cancelBlast = useCallback(
         async (blastId: string) => {
-            const { error } = await (supabase as any)
+            const { error } = await supabase
                 .from("dispatch_blasts")
                 .update({ status: "cancelled", updated_at: new Date().toISOString() })
-                .eq("id", blastId);
+                .eq("id", blastId) as unknown as { error: { message: string } | null };
 
             if (error) {
                 toast({ title: "Cancel failed", description: error.message, variant: "destructive" });
             } else {
                 // Expire all pending responses
-                await (supabase as any)
+                await supabase
                     .from("blast_responses")
                     .update({ status: "expired", responded_at: new Date().toISOString() })
                     .eq("blast_id", blastId)
@@ -239,7 +239,7 @@ export function useDispatchBlast() {
     // ── Express interest (driver-side — marks as "interested") ──
     const expressInterest = useCallback(
         async (blastId: string, driverId: string, lat?: number, lng?: number) => {
-            const { error } = await (supabase as any)
+            const { error } = await supabase
                 .from("blast_responses")
                 .update({
                     status: "interested",
@@ -248,7 +248,7 @@ export function useDispatchBlast() {
                     longitude: lng ?? null,
                 })
                 .eq("blast_id", blastId)
-                .eq("driver_id", driverId);
+                .eq("driver_id", driverId) as unknown as { error: { message: string } | null };
 
             if (error) {
                 toast({
@@ -271,10 +271,12 @@ export function useDispatchBlast() {
     // ── Confirm assignment (dispatcher-side — calls PG function) ──
     const confirmAssignment = useCallback(
         async (blastId: string, driverId: string) => {
-            const { data, error } = await (supabase as any).rpc("confirm_blast_assignment", {
+            const rpcResult = await supabase.rpc("confirm_blast_assignment", {
                 p_blast_id: blastId,
                 p_driver_id: driverId,
-            }) as { data: { success: boolean; error?: string; load_id?: string } | null; error: any };
+            }) as unknown as { data: { success: boolean; error?: string; load_id?: string } | null; error: { message: string } | null };
+
+            const { data, error } = rpcResult;
 
             if (error || !data?.success) {
                 toast({
@@ -297,7 +299,7 @@ export function useDispatchBlast() {
     // ── Decline (for driver-side) ─────────────────
     const declineBlast = useCallback(
         async (blastId: string, driverId: string, reason?: string) => {
-            const { error } = await (supabase as any)
+            const { error } = await supabase
                 .from("blast_responses")
                 .update({
                     status: "declined",
@@ -306,16 +308,16 @@ export function useDispatchBlast() {
                     response_time_ms: null, // will be computed
                 })
                 .eq("blast_id", blastId)
-                .eq("driver_id", driverId);
+                .eq("driver_id", driverId) as unknown as { error: unknown };
 
             if (!error) {
                 // Increment decline counter on the blast
-                await (supabase as any).rpc("increment_blast_stat", {
+                await supabase.rpc("increment_blast_stat", {
                     p_blast_id: blastId,
                     p_field: "drivers_declined",
                 }).catch(() => {
                     // Fallback: manual update
-                    (supabase as any)
+                    void supabase
                         .from("dispatch_blasts")
                         .update({ drivers_declined: (blasts.find(b => b.id === blastId)?.drivers_declined ?? 0) + 1 })
                         .eq("id", blastId);
