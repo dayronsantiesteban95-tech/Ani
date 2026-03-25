@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { fmtMoney, fmtWait, todayISO, daysAgoISO } from "@/lib/formatters";
 import { supabase } from "@/integrations/supabase/client";
+import type { OrderFormData } from "@/lib/quickLoadHelpers";
 import { CITY_HUBS } from "@/lib/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -88,6 +89,9 @@ type Load = {
     sla_deadline?: string | null;
     route_distance_meters?: number | null;
     route_duration_seconds?: number | null;
+    delivery_lat?: number | null;
+    delivery_lng?: number | null;
+    tracking_token?: string | null;
 };
 type Profile = { user_id: string; full_name: string };
 
@@ -110,6 +114,8 @@ const WAIT_COLORS = [
     { max: Infinity, label: "Critical", class: "bg-red-500/15 text-red-700 dark:text-red-400" },
 ];
 const DETENTION_THRESHOLD = 30; // minutes — industry standard
+
+const db = supabase;
 
 function waitBadgeClass(mins: number) {
     return (WAIT_COLORS.find((w) => mins <= w.max) ?? WAIT_COLORS[3]).class;
@@ -142,14 +148,12 @@ export default function DispatchTracker() {
     const [toolsOpen, setToolsOpen] = useState(false);
     const [activeTool, setActiveTool] = useState<"quick" | "import" | "history" | "log" | "blast" | null>("quick");
     const [autoDispatchLoadId, setAutoDispatchLoadId] = useState<string | null>(null);
-    const [clonePrefill, setClonePrefill] = useState<any>(null);
+    const [clonePrefill, setClonePrefill] = useState<Partial<OrderFormData> | null>(null);
     const [deleteId, setDeleteId] = useState<string | null>(null);
     // ── Detail panel ─────────────────────────
     const [selectedLoadDetail, setSelectedLoadDetail] = useState<Load | null>(null);
 
     // ── Fetch helpers ────────────────────────
-    const db = supabase;
-
     const fetchLoads = useCallback(async () => {
         const { data } = await db.from("daily_loads")
             .select("*")
@@ -261,7 +265,7 @@ export default function DispatchTracker() {
     };
 
     // ── Lookups ──────────────────────────────
-    const driverName = (id: string | null) => drivers.find((d) => d.id === id)?.full_name ?? "—";
+    const driverName = useCallback((id: string | null) => drivers.find((d) => d.id === id)?.full_name ?? "—", [drivers]);
     const vehicleName = (id: string | null) => vehicles.find((v) => v.id === id)?.vehicle_name ?? "—";
     const dispatcherName = (id: string | null) => profiles.find((p) => p.user_id === id)?.full_name ?? "—";
     const statusInfo = (s: string) => STATUSES.find((st) => st.value === s) ?? STATUSES[0];
@@ -313,7 +317,7 @@ export default function DispatchTracker() {
             .sort((a, b) => b.avg - a.avg);
 
         return { avgAll, detentionEligible, detentionBilled, clientWait, driverWait };
-    }, [loads, drivers]);
+    }, [loads, driverName]);
 
     // Daily report
     const dailyReport = useMemo(() => {
@@ -351,7 +355,7 @@ export default function DispatchTracker() {
                 { label: "Night", loads: nightShift.length, miles: nightShift.reduce((s, l) => s + Number(l.miles), 0), revenue: nightShift.reduce((s, l) => s + Number(l.revenue), 0) },
             ],
         };
-    }, [loads, selectedDate, drivers]);
+    }, [loads, selectedDate, driverName]);
 
     const copyReport = () => {
         const r = dailyReport;
@@ -470,11 +474,11 @@ export default function DispatchTracker() {
                                     client_name: l.client_name,
                                     delivery_address: l.delivery_address,
                                     pickup_address: l.pickup_address,
-                                    delivery_lat: (l as any).delivery_lat ?? null,
-                                    delivery_lng: (l as any).delivery_lng ?? null,
+                                    delivery_lat: l.delivery_lat ?? null,
+                                    delivery_lng: l.delivery_lng ?? null,
                                     status: l.status,
                                     packages: l.packages,
-                                    tracking_token: (l as any).tracking_token ?? null,
+                                    tracking_token: l.tracking_token ?? null,
                                 }))}
                                 onRouteApplied={() => fetchLoads()}
                             />
