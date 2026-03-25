@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtMoney, fmtWait, todayISO } from "@/lib/formatters";
@@ -65,7 +65,7 @@ export default function Dashboard() {
   const [recentActivity, setRecentActivity] = useState<{ id: string; note: string; activity_type: string; created_at: string }[]>([]);
   const [upcomingTasks, setUpcomingTasks] = useState<Tables<"tasks">[]>([]);
   const [taskStatusCounts, setTaskStatusCounts] = useState<{ name: string; value: number }[]>([]);
-  const [todayLoads, setTodayLoads] = useState<any[]>([]);
+  const [todayLoads, setTodayLoads] = useState<Tables<"daily_loads">[]>([]);
   const [drivers, setDrivers] = useState<{ id: string; full_name: string }[]>([]);
 
   useEffect(() => {
@@ -145,16 +145,16 @@ export default function Dashboard() {
   // ── Today's Ops Summary (must be above early return to satisfy rules of hooks) ──
   const opsStats = useMemo(() => {
     if (!todayLoads.length) return null;
-    const totalRevenue = todayLoads.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-    const totalCosts = todayLoads.reduce((s: number, l: any) => s + Number(l.driver_pay || 0) + Number(l.fuel_cost || 0), 0);
-    const totalMiles = todayLoads.reduce((s: number, l: any) => s + Number(l.miles || 0), 0);
-    const waitLoads = todayLoads.filter((l: any) => l.wait_time_minutes > 0);
-    const avgWait = waitLoads.length ? Math.round(waitLoads.reduce((s: number, l: any) => s + l.wait_time_minutes, 0) / waitLoads.length) : 0;
-    const delivered = todayLoads.filter((l: any) => l.status === "delivered").length;
+    const totalRevenue = todayLoads.reduce((s: number, l) => s + Number(l.revenue || 0), 0);
+    const totalCosts = todayLoads.reduce((s: number, l) => s + Number(l.driver_pay || 0) + Number(l.fuel_cost || 0), 0);
+    const totalMiles = todayLoads.reduce((s: number, l) => s + Number(l.miles || 0), 0);
+    const waitLoads = todayLoads.filter((l) => (l.wait_time_minutes ?? 0) > 0);
+    const avgWait = waitLoads.length ? Math.round(waitLoads.reduce((s: number, l) => s + (l.wait_time_minutes ?? 0), 0) / waitLoads.length) : 0;
+    const delivered = todayLoads.filter((l) => l.status === "delivered").length;
 
     const driverName = (id: string | null) => drivers.find((d) => d.id === id)?.full_name ?? "Unknown";
     const byDriver: Record<string, { loads: number; miles: number; revenue: number }> = {};
-    todayLoads.forEach((l: any) => {
+    todayLoads.forEach((l) => {
       const name = driverName(l.driver_id);
       if (!byDriver[name]) byDriver[name] = { loads: 0, miles: 0, revenue: 0 };
       byDriver[name].loads += 1;
