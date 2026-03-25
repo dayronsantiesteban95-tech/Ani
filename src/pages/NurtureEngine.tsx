@@ -247,7 +247,7 @@ export default function NurtureEngine() {
       .order("follow_up_date", { ascending: true });
     if (!data) return;
     setFollowUps(data as SequenceStep[]);
-    const leadIds = [...new Set(data.map((d: any) => d.lead_id))];
+    const leadIds = [...new Set(data.map((d) => d.lead_id))];
     if (leadIds.length) {
       const { data: leads } = await supabase
         .from("leads")
@@ -271,7 +271,7 @@ export default function NurtureEngine() {
       .order("updated_at", { ascending: false });
     if (!data) return;
     setAttentionSteps(data as SequenceStep[]);
-    const leadIds = [...new Set(data.map((d: any) => d.lead_id))];
+    const leadIds = [...new Set(data.map((d) => d.lead_id))];
     if (leadIds.length) {
       const { data: leads } = await supabase
         .from("leads")
@@ -294,7 +294,7 @@ export default function NurtureEngine() {
       .order("created_at", { ascending: false });
     if (!leads) return;
     setTrackerLeads(leads as LeadWithSequences[]);
-    const leadIds = leads.map((l: any) => l.id);
+    const leadIds = leads.map((l) => l.id);
     if (leadIds.length) {
       const { data: seqs } = await supabase
         .from("lead_sequences")
@@ -617,7 +617,7 @@ export default function NurtureEngine() {
       }
 
       // Fetch all lead info for these steps
-      const leadIds = [...new Set(dueSteps.map((s: any) => s.lead_id))];
+      const leadIds = [...new Set(dueSteps.map((s) => s.lead_id))];
       const { data: leadData } = await supabase
         .from("leads")
         .select("id, company_name, contact_person, city_hub, industry, email, stage")
@@ -678,9 +678,9 @@ export default function NurtureEngine() {
           if (!res.ok) throw new Error(result.error || `HTTP ${res.status}`);
           results.sent++;
           results.details.push(`✅ ${lead.company_name} — "${subject}" sent to ${lead.email}`);
-        } catch (err: any) {
+        } catch (err: unknown) {
           results.failed++;
-          results.details.push(`❌ ${lead.company_name} — ${err.message}`);
+          results.details.push(`❌ ${lead.company_name} — ${err instanceof Error ? err.message : String(err)}`);
         }
 
         // Small delay between sends to avoid rate limits
@@ -706,13 +706,13 @@ export default function NurtureEngine() {
       fetchFollowUps();
       fetchTracker();
       fetchAttention();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Auto-send error:", err);
-      toast({ title: "Auto-send failed", description: err.message, variant: "destructive" });
+      toast({ title: "Auto-send failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     } finally {
       setAutoSending(false);
     }
-  }, [user, fetchFollowUps, fetchTracker, fetchAttention, autoSending, today, toast]);
+  }, [user, fetchFollowUps, fetchTracker, fetchAttention, autoSending, toast]);
 
   // ── Run auto-send once when templates and data are loaded ──
   useEffect(() => {
@@ -739,8 +739,8 @@ export default function NurtureEngine() {
       }
       toast({ title: "✅ 45 Anika templates loaded!", description: "15 templates × 3 hubs. Ready to use." });
       fetchTemplates();
-    } catch (err: any) {
-      toast({ title: "Failed to seed templates", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Failed to seed templates", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     } finally {
       setSeedingTemplates(false);
     }
@@ -769,8 +769,8 @@ export default function NurtureEngine() {
       toast({ title: "📧 Email Sent!", description: `Sent "${subject}" to ${lead.email}` });
       fetchFollowUps();
       fetchTracker();
-    } catch (err: any) {
-      toast({ title: "Send failed", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Send failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     } finally {
       setSendingEmail(null);
     }
