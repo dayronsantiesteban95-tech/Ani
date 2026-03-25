@@ -20,8 +20,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import {
     Activity, Search, Package, Truck, Camera, Route,
-    Settings, Clock, User, ArrowRight, Filter, RefreshCw,
-    CheckCircle2, MapPin, Zap, FileText,
+    RefreshCw, CheckCircle2, MapPin, FileText,
 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────
@@ -41,6 +40,43 @@ interface ActivityLogProps {
     driverId?: string;     // Filter to a specific driver
     limit?: number;
     compact?: boolean;
+}
+
+interface StatusEventRow {
+    id: string;
+    load_id: string;
+    new_status: string;
+    old_status: string | null;
+    note: string | null;
+    recorded_at: string;
+}
+
+interface DailyLoadRow {
+    id: string;
+    reference_number: string | null;
+    client_name: string | null;
+    status: string;
+    created_at: string;
+    driver_id: string | null;
+    updated_at: string;
+}
+
+interface DriverShiftRow {
+    id: string;
+    driver_id: string;
+    started_at: string;
+    ended_at: string | null;
+}
+
+type DbQuery<T> = Promise<{ data: T[] | null; error: unknown }> & {
+    select(cols: string): DbQuery<T>;
+    order(col: string, opts: { ascending: boolean }): DbQuery<T>;
+    limit(count: number): DbQuery<T>;
+    eq(col: string, val: string): DbQuery<T>;
+};
+
+interface DbAdapter {
+    from<T>(table: string): DbQuery<T>;
 }
 
 // ─── Action → icon/color mapping ──────────────────────
@@ -82,20 +118,21 @@ export default function ActivityLog({
     const fetchActivity = useCallback(async () => {
         setLoading(true);
 
+        const db = supabase as unknown as DbAdapter;
+
         // Build activity from load_status_events + daily_loads recent changes
         const activities: ActivityEntry[] = [];
 
         // 1. Status events
         try {
-            let query = (supabase as any)
-                .from("load_status_events")
+            let query = db.from<StatusEventRow>("load_status_events")
                 .select("id, load_id, new_status, old_status, note, recorded_at, changed_by")
                 .order("recorded_at", { ascending: false })
                 .limit(limit);
 
             if (loadId) query = query.eq("load_id", loadId);
 
-            const { data: events } = await query as { data: any[] | null };
+            const { data: events } = await query;
 
             if (events) {
                 for (const evt of events) {
@@ -115,15 +152,14 @@ export default function ActivityLog({
 
         // 2. Recent loads (created)
         try {
-            let query = (supabase as any)
-                .from("daily_loads")
+            let query = db.from<DailyLoadRow>("daily_loads")
                 .select("id, reference_number, client_name, status, created_at, driver_id, updated_at")
                 .order("created_at", { ascending: false })
                 .limit(limit);
 
             if (loadId) query = query.eq("id", loadId);
 
-            const { data: loads } = await query as { data: any[] | null };
+            const { data: loads } = await query;
 
             if (loads) {
                 for (const load of loads) {
@@ -152,15 +188,14 @@ export default function ActivityLog({
 
         // 3. Driver shifts
         try {
-            let query = (supabase as any)
-                .from("driver_shifts")
+            let query = db.from<DriverShiftRow>("driver_shifts")
                 .select("id, driver_id, started_at, ended_at")
                 .order("started_at", { ascending: false })
                 .limit(20);
 
             if (driverId) query = query.eq("driver_id", driverId);
 
-            const { data: shifts } = await query as { data: any[] | null };
+            const { data: shifts } = await query;
 
             if (shifts) {
                 for (const shift of shifts) {
@@ -249,7 +284,7 @@ export default function ActivityLog({
                     <p className="text-xs text-muted-foreground text-center py-4">No activity found</p>
                 ) : (
                     <div className={`space-y-0.5 ${compact ? "max-h-48" : "max-h-96"} overflow-y-auto`}>
-                        {filtered.map((entry, i) => {
+                        {filtered.map((entry) => {
                             const meta = getActionMeta(entry.action, entry.entity_type);
                             const Icon = meta.icon;
                             return (
