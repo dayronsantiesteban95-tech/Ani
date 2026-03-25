@@ -12,6 +12,21 @@ import { supabase } from "@/integrations/supabase/client";
 
 // ─── Types ─────────────────────────────────────────────
 
+interface DriverPositionRow {
+    driver_id: string;
+    driver_name: string;
+    hub: string;
+    latitude: number;
+    longitude: number;
+    speed: number | null;
+    heading: number | null;
+    battery_pct: number | null;
+    is_moving: boolean;
+    active_load_id: string | null;
+    recorded_at: string;
+    shift_status: string | null;
+}
+
 export interface LiveDriver {
     driverId: string;
     name: string;
@@ -52,7 +67,7 @@ export function useRealtimeDriverMap(): UseRealtimeDriverMapReturn {
         }
 
         if (data) {
-            const mapped: LiveDriver[] = (data as any[]).map((d) => ({
+            const mapped: LiveDriver[] = (data as DriverPositionRow[]).map((d) => ({
                 driverId: d.driver_id,
                 name: d.driver_name,
                 hub: d.hub,
