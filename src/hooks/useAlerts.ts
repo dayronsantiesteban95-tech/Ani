@@ -47,10 +47,10 @@ interface UseAlertsOptions {
 
 // ─── Escalation Logic ─────────────────────────────────
 
-function computeEscalation(alert: RouteAlert): RouteAlert["escalatedSeverity"] {
+function computeEscalation(alert: RouteAlert, nowMs: number): RouteAlert["escalatedSeverity"] {
     if (alert.status !== "active") return alert.severity;
 
-    const ageMs = Date.now() - new Date(alert.created_at).getTime();
+    const ageMs = nowMs - new Date(alert.created_at).getTime();
     const ageMin = ageMs / 60_000;
 
     if (ageMin >= 30) return "auto_ping";
@@ -59,8 +59,8 @@ function computeEscalation(alert: RouteAlert): RouteAlert["escalatedSeverity"] {
     return "info";
 }
 
-function computeAge(alert: RouteAlert): number {
-    return Math.round((Date.now() - new Date(alert.created_at).getTime()) / 60_000);
+function computeAge(alert: RouteAlert, nowMs: number): number {
+    return Math.round((nowMs - new Date(alert.created_at).getTime()) / 60_000);
 }
 
 // ─── Hook ─────────────────────────────────────────────
@@ -146,17 +146,17 @@ export function useAlerts(options: UseAlertsOptions = {}) {
     }, [realtime, pollInterval, fetchAlerts]);
 
     // ── Escalation tick (re-compute every 60s) ──
-    const [escalationTick, setEscalationTick] = useState(0);
+    const [nowMs, setNowMs] = useState(() => Date.now());
     useEffect(() => {
-        const interval = setInterval(() => setEscalationTick(t => t + 1), 60_000);
+        const interval = setInterval(() => setNowMs(Date.now()), 60_000);
         return () => clearInterval(interval);
     }, []);
 
     // ── Enriched alerts with escalation + age ──
     const alerts = useMemo(() => {
         return rawAlerts.map(alert => {
-            const escalatedSeverity = computeEscalation(alert);
-            const ageMinutes = computeAge(alert);
+            const escalatedSeverity = computeEscalation(alert, nowMs);
+            const ageMinutes = computeAge(alert, nowMs);
 
             // Auto-ping: toast to owner/supervisor when hitting 30min
             if (escalatedSeverity === "auto_ping" && !autoPingedRef.current.has(alert.id)) {
@@ -174,7 +174,7 @@ export function useAlerts(options: UseAlertsOptions = {}) {
                 ageMinutes,
             };
         });
-    }, [rawAlerts, escalationTick, toast]);
+    }, [rawAlerts, nowMs, toast]);
 
     // ── Acknowledge alert ──
     const acknowledgeAlert = useCallback(async (alertId: string) => {
