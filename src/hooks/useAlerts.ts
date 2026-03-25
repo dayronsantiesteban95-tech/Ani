@@ -79,7 +79,7 @@ export function useAlerts(options: UseAlertsOptions = {}) {
 
     // ── Fetch alerts from route_alerts table ──
     const fetchAlerts = useCallback(async () => {
-        const { data, error } = await (supabase as any)
+        const { data, error } = await supabase
             .from("route_alerts")
             .select("*")
             .eq("status", "active")
@@ -127,7 +127,7 @@ export function useAlerts(options: UseAlertsOptions = {}) {
         const channel = supabase
             .channel("alerts-realtime")
             .on(
-                "postgres_changes" as any,
+                "postgres_changes",
                 { event: "*", schema: "public", table: "route_alerts" },
                 () => fetchAlerts()
             )
@@ -174,12 +174,11 @@ export function useAlerts(options: UseAlertsOptions = {}) {
                 ageMinutes,
             };
         });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [rawAlerts, escalationTick]);
+    }, [rawAlerts, escalationTick, toast]);
 
     // ── Acknowledge alert ──
     const acknowledgeAlert = useCallback(async (alertId: string) => {
-        const { error } = await (supabase as any)
+        const { error } = await supabase
             .from("route_alerts")
             .update({
                 status: "acknowledged",
@@ -196,7 +195,7 @@ export function useAlerts(options: UseAlertsOptions = {}) {
 
     // ── Resolve alert ──
     const resolveAlert = useCallback(async (alertId: string) => {
-        const { error } = await (supabase as any)
+        const { error } = await supabase
             .from("route_alerts")
             .update({
                 status: "resolved",
@@ -216,7 +215,7 @@ export function useAlerts(options: UseAlertsOptions = {}) {
         const ids = rawAlerts.map(a => a.id);
         if (ids.length === 0) return;
 
-        const { error } = await (supabase as any)
+        const { error } = await supabase
             .from("route_alerts")
             .update({
                 status: "acknowledged",
