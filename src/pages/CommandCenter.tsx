@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import type { ElementType } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -68,7 +69,7 @@ function MetricCard({
 }: {
     label: string;
     value: string | number;
-    icon: React.ElementType;
+    icon: ElementType;
     trend?: { direction: "up" | "down" | "flat"; label: string };
     variant?: "default" | "success" | "warning" | "danger" | "live";
     compact?: boolean;
@@ -385,7 +386,7 @@ function MapPlaceholder({ driverCount, loadCount }: { driverCount: number; loadC
 // ═══════════════════════════════════════════
 
 export default function CommandCenter() {
-    const { user } = useAuth();
+    useAuth();
     const { toast } = useToast();
     const [loads, setLoads] = useState<Load[]>([]);
     const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -402,15 +403,14 @@ export default function CommandCenter() {
         alerts: routeAlerts,
         stats: alertStats,
         dismissAll: dismissAllAlerts,
-        loading: alertsLoading,
     } = useAlerts({ realtime: true });
 
     // ── Fetch ──
     const fetchData = useCallback(async () => {
         setLoading(true);
         const [loadsRes, driversRes] = await Promise.all([
-            (supabase as any).from("daily_loads").select("*").eq("load_date", today).order("created_at", { ascending: false }),
-            (supabase as any).from("drivers").select("*").order("full_name"),
+            supabase.from("daily_loads").select("*").eq("load_date", today).order("created_at", { ascending: false }),
+            supabase.from("drivers").select("*").order("full_name"),
         ]);
         if (loadsRes.data) setLoads(loadsRes.data);
         if (driversRes.data) setDrivers(driversRes.data);
@@ -423,8 +423,8 @@ export default function CommandCenter() {
     useEffect(() => {
         const channel = supabase
             .channel("cc-realtime")
-            .on("postgres_changes" as any, { event: "*", schema: "public", table: "daily_loads" }, () => fetchData())
-            .on("postgres_changes" as any, { event: "*", schema: "public", table: "drivers" }, () => fetchData())
+            .on("postgres_changes",{ event: "*", schema: "public", table: "daily_loads" }, () => fetchData())
+            .on("postgres_changes",{ event: "*", schema: "public", table: "drivers" }, () => fetchData())
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
@@ -695,7 +695,7 @@ export default function CommandCenter() {
                                                 const load = loads.find(l => l.id === loadId);
                                                 if (load) setSelectedLoad(load);
                                             }}
-                                            onBlast={(loadId) => {
+                                            onBlast={(_loadId) => {
                                                 window.location.href = "/dispatch";
                                                 toast({ title: "Opening Blast Panel...", description: "Select the load to blast" });
                                             }}
@@ -761,7 +761,7 @@ export default function CommandCenter() {
                                 const load = loads.find(l => l.id === loadId);
                                 if (load) setSelectedLoad(load);
                             }}
-                            onBlast={(loadId) => {
+                            onBlast={(_loadId) => {
                                 window.location.href = "/dispatch";
                             }}
                         />
