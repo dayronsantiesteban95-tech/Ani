@@ -11,15 +11,16 @@
  * One-click to assign. No more guessing "who's nearby?"
  * ═══════════════════════════════════════════════════════════
  */
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
-    Zap, Truck, MapPin, Package, Clock, ArrowRight,
-    CheckCircle2, User, RefreshCw, Target,
+    Zap, Truck, MapPin, ArrowRight,
+    User, RefreshCw, Target,
 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────
@@ -37,6 +38,12 @@ interface DriverCandidate {
     distanceMiles: number | null; // null = no GPS data
     score: number; // lower is better
     reason: string;
+}
+
+interface DriverPosition {
+    driver_id: string;
+    latitude: number;
+    longitude: number;
 }
 
 interface AutoDispatchPanelProps {
@@ -74,16 +81,16 @@ export default function AutoDispatchPanel({
 
     useEffect(() => {
         fetchCandidates();
-    }, [loadId, loadHub]);
+    }, [loadId, fetchCandidates]);
 
     const fetchCandidates = useCallback(async () => {
         setLoading(true);
 
         // 1. Get all active drivers (prefer same hub)
-        const { data: drivers } = await (supabase as any)
+        const { data: drivers } = await (supabase as unknown as SupabaseClient)
             .from("drivers")
             .select("id, full_name, hub, status")
-            .eq("status", "active") as { data: Driver[] | null };
+            .eq("status", "active") as unknown as { data: Driver[] | null };
 
         if (!drivers || drivers.length === 0) {
             setCandidates([]);
@@ -93,11 +100,11 @@ export default function AutoDispatchPanel({
 
         // 2. Get today's load counts per driver
         const today = new Date().toISOString().split("T")[0];
-        const { data: loadCounts } = await (supabase as any)
+        const { data: loadCounts } = await (supabase as unknown as SupabaseClient)
             .from("daily_loads")
             .select("driver_id")
             .eq("load_date", today)
-            .neq("status", "cancelled") as { data: { driver_id: string }[] | null };
+            .neq("status", "cancelled") as unknown as { data: { driver_id: string }[] | null };
 
         const countMap = new Map<string, number>();
         for (const lc of loadCounts ?? []) {
@@ -107,8 +114,8 @@ export default function AutoDispatchPanel({
         // 3. Get latest GPS positions — graceful fallback if RPC doesn't exist
         const posMap = new Map<string, { lat: number; lng: number }>();
         try {
-            const { data: positions } = await (supabase as any)
-                .rpc("get_driver_positions") as { data: any[] | null };
+            const { data: positions } = await (supabase as unknown as SupabaseClient)
+                .rpc("get_driver_positions") as unknown as { data: DriverPosition[] | null };
 
             for (const pos of positions ?? []) {
                 posMap.set(pos.driver_id, { lat: pos.latitude, lng: pos.longitude });
