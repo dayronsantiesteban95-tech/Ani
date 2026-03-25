@@ -17,9 +17,9 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
-    Package, Truck, Users, Building2, MapPin, Search, ArrowRight,
-    Navigation, Plus, FileText, BarChart3, Settings, Zap,
-    Hash, Clock, CheckCircle2, AlertCircle, Star, Route,
+    Package, Truck, Users, Building2, Search, ArrowRight,
+    Navigation, Plus, FileText, BarChart3, Zap,
+    AlertCircle, Star, Route,
 } from "lucide-react";
 
 // ─── Result Types ──────────────────────────────────────
@@ -79,7 +79,7 @@ function statusBadge(status: string): { badge: string; badgeColor: string } {
 // ═══════════════════════════════════════════════════════════
 export default function CommandBar() {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    useAuth();
     const inputRef = useRef<HTMLInputElement>(null);
 
     const [open, setOpen] = useState(false);
@@ -161,12 +161,12 @@ export default function CommandBar() {
 
         // ── Search loads ──
         try {
-            const { data: loads } = await (supabase as any)
+            const { data: loads } = await supabase
                 .from("daily_loads")
                 .select("id, reference_number, client_name, delivery_address, status, tracking_token, load_date")
                 .or(`reference_number.ilike.%${term}%,client_name.ilike.%${term}%,delivery_address.ilike.%${term}%,tracking_token.ilike.%${term}%`)
                 .order("load_date", { ascending: false })
-                .limit(6) as { data: any[] | null };
+                .limit(6);
 
             if (loads) {
                 for (const load of loads) {
@@ -188,11 +188,11 @@ export default function CommandBar() {
 
         // ── Search drivers ──
         try {
-            const { data: drivers } = await (supabase as any)
+            const { data: drivers } = await supabase
                 .from("drivers")
                 .select("id, full_name, hub, status, phone")
                 .or(`full_name.ilike.%${term}%,hub.ilike.%${term}%,phone.ilike.%${term}%`)
-                .limit(5) as { data: any[] | null };
+                .limit(5);
 
             if (drivers) {
                 for (const d of drivers) {
@@ -213,19 +213,19 @@ export default function CommandBar() {
 
         // ── Search contacts/companies ──
         try {
-            const { data: contacts } = await (supabase as any)
+            const { data: contacts } = await supabase
                 .from("contacts")
-                .select("id, name, email, company")
-                .or(`name.ilike.%${term}%,email.ilike.%${term}%,company.ilike.%${term}%`)
-                .limit(4) as { data: any[] | null };
+                .select("id, first_name, last_name, email")
+                .or(`first_name.ilike.%${term}%,last_name.ilike.%${term}%,email.ilike.%${term}%`)
+                .limit(4);
 
             if (contacts) {
                 for (const c of contacts) {
                     allResults.push({
                         id: `contact-${c.id}`,
                         category: "customers",
-                        title: c.name,
-                        subtitle: `${c.company ?? ""} · ${c.email ?? ""}`.trim().replace(/^·\s*/, ""),
+                        title: `${c.first_name} ${c.last_name}`.trim(),
+                        subtitle: c.email ?? "",
                         icon: Users,
                         iconColor: "text-pink-500",
                         action: () => { navigate("/contacts"); setOpen(false); },
