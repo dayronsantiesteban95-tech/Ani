@@ -252,8 +252,8 @@ export default function PodManager() {
             setShowUploadDialog(false);
             resetUploadForm();
             fetchData();
-        } catch (err: any) {
-            toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+        } catch (err: unknown) {
+            toast({ title: "Upload failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
         }
         setUploading(false);
     };
@@ -418,8 +418,8 @@ export default function PodManager() {
             setShowPodDialog(false);
             resetPodForm();
             fetchData();
-        } catch (err: any) {
-            toast({ title: "POD submission failed", description: err.message, variant: "destructive" });
+        } catch (err: unknown) {
+            toast({ title: "POD submission failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
         }
         setSubmittingPod(false);
     };
