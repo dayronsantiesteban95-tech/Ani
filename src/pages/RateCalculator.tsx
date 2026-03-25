@@ -209,7 +209,7 @@ export default function RateCalculator() {
             if (error) {
                 setFetchError(`rate_cards: ${error.message}. Run the migration SQL.`);
             } else {
-                const parsed = (data ?? []).map((c: any) => ({
+                const parsed = (data ?? []).map((c: Record<string, unknown>) => ({
                     ...c,
                     base_rate: Number(c.base_rate) || 0,
                     per_mile_rate: Number(c.per_mile_rate) || 0,
@@ -222,8 +222,8 @@ export default function RateCalculator() {
                 setRateCards(parsed);
                 setFetchError(parsed.length === 0 ? "rate_cards table is empty — run the migration SQL." : null);
             }
-        } catch (err: any) {
-            setFetchError(err.message);
+        } catch (err: unknown) {
+            setFetchError(err instanceof Error ? err.message : String(err));
         }
         setLoadingCards(false);
     }, []);
@@ -234,7 +234,7 @@ export default function RateCalculator() {
                 .from("saved_quotes").select("*")
                 .order("created_at", { ascending: false }).limit(15);
             if (!error && data) {
-                setHistory(data.map((q: any) => ({
+                setHistory(data.map((q: Record<string, unknown>) => ({
                     ...q,
                     distance_miles: Number(q.distance_miles) || 0,
                     weight_lbs: Number(q.weight_lbs) || 0,
@@ -284,8 +284,8 @@ export default function RateCalculator() {
                 setDistance(est);
                 toast({ title: `📍 ~${est} miles (estimated)` });
             }
-        } catch (err: any) {
-            toast({ title: "Distance lookup failed", description: err.message, variant: "destructive" });
+        } catch (err: unknown) {
+            toast({ title: "Distance lookup failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
         }
         setCalcDistanceLoading(false);
     };
@@ -539,8 +539,8 @@ export default function RateCalculator() {
             } else {
                 toast({ title: "Email failed", description: result.error, variant: "destructive" });
             }
-        } catch (err: any) {
-            toast({ title: "Email failed", description: err.message, variant: "destructive" });
+        } catch (err: unknown) {
+            toast({ title: "Email failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
         }
         setSendingEmail(false);
     };
