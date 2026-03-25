@@ -25,10 +25,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
-    MapPin, Navigation, Truck, Package, Clock, Battery,
+    MapPin, Navigation, Truck, Package,
     CheckCircle2, AlertCircle, Wifi, WifiOff,
     ChevronRight, Phone, Camera, ArrowRight,
-    Power, Pause, Play, Radio,
+    Power, Radio,
 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────
@@ -107,20 +107,20 @@ export default function DriverPortal() {
     useEffect(() => {
         if (!user) return;
         (async () => {
-            const { data } = (await (supabase as any)
+            const { data } = await supabase
                 .from("drivers")
                 .select("id, full_name, hub, status")
                 .eq("user_id", user.id)
-                .single()) as { data: DriverProfile | null; error: any };
+                .single();
             if (data) {
-                setDriver(data);
+                setDriver(data as unknown as DriverProfile);
                 // Check for active shift
                 const { data: shift } = await supabase
                     .from("driver_shifts")
                     .select("id")
                     .eq("driver_id", data.id)
                     .is("shift_end", null)
-                    .single() as { data: { id: string } | null };
+                    .single() as unknown as { data: { id: string } | null };
                 if (shift) {
                     setShiftId(shift.id);
                     setOnDuty(true);
