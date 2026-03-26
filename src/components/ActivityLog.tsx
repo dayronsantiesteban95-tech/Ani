@@ -42,32 +42,6 @@ interface ActivityLogProps {
     compact?: boolean;
 }
 
-interface StatusEventRow {
-    id: string;
-    load_id: string;
-    new_status: string;
-    old_status: string | null;
-    note: string | null;
-    recorded_at: string;
-}
-
-interface DailyLoadRow {
-    id: string;
-    reference_number: string | null;
-    client_name: string | null;
-    status: string;
-    created_at: string;
-    driver_id: string | null;
-    updated_at: string;
-}
-
-interface DriverShiftRow {
-    id: string;
-    driver_id: string;
-    shift_start: string;
-    shift_end: string | null;
-}
-
 // ─── Action → icon/color mapping ──────────────────────
 
 function getActionMeta(action: string, entityType: string) {
