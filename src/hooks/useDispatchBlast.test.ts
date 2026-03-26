@@ -117,7 +117,6 @@ describe("useDispatchBlast", () => {
         vi.clearAllMocks();
         (useAuth as ReturnType<typeof vi.fn>).mockReturnValue({ user: { id: "user-1" } });
         (useToast as ReturnType<typeof vi.fn>).mockReturnValue({ toast: mockToast });
-        (supabase as unknown as { removeChannel: ReturnType<typeof vi.fn> }).removeChannel = vi.fn();
     });
 
     it("starts with loading true and empty blasts", async () => {
