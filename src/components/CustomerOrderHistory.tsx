@@ -80,15 +80,16 @@ export default function CustomerOrderHistory({
     // Fetch unique client names for autocomplete
     useEffect(() => {
         const fetchClients = async () => {
-            const { data } = (await supabase
+            const { data, error } = await supabase
                 .from("daily_loads")
                 .select("client_name")
                 .not("client_name", "is", null)
                 .order("created_at", { ascending: false })
-                .limit(200)) as unknown as { data: { client_name: string }[] | null };
+                .limit(200);
 
+            if (error) return;
             if (data) {
-                const unique = [...new Set(data.map((d) => d.client_name).filter(Boolean))];
+                const unique = [...new Set(data.map((d) => d.client_name).filter((v): v is string => v !== null))];
                 setSuggestions(unique);
             }
         };
@@ -104,7 +105,7 @@ export default function CustomerOrderHistory({
             .replace(/_/g, "\\_"); // Escape SQL single-char wildcard
         setClientName(name.trim());
 
-        const { data } = (await supabase
+        const { data, error: fetchError } = await supabase
             .from("daily_loads")
             .select(`
         id, reference_number, load_date, status,
@@ -113,8 +114,12 @@ export default function CustomerOrderHistory({
       `)
             .ilike("client_name", `%${sanitized}%`)
             .order("load_date", { ascending: false })
-            .limit(100)) as unknown as { data: DailyLoadRow[] | null };
+            .limit(100);
 
+        if (fetchError) {
+            setLoading(false);
+            return;
+        }
         if (data && data.length > 0) {
             setOrders(data);
 

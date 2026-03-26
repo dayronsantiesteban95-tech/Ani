@@ -83,12 +83,14 @@ export function useDispatchBlast() {
 
     // ── Fetch all active + recent blasts ──────────
     const fetchBlasts = useCallback(async () => {
-        const { data: blastRows, error } = await supabase
+        const blastResult = await supabase
             .from("dispatch_blasts")
             .select("*")
             .or("status.eq.active,created_at.gte." + new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
             .order("created_at", { ascending: false })
-            .limit(50) as unknown as { data: DispatchBlast[] | null; error: unknown };
+            .limit(50);
+        const { error } = blastResult;
+        const blastRows = blastResult.data as DispatchBlast[] | null;
 
         if (error || !blastRows) {
             console.error("Failed to fetch blasts:", error);
@@ -98,11 +100,15 @@ export function useDispatchBlast() {
 
         // Fetch responses for these blasts
         const blastIds = blastRows.map((b) => b.id);
-        const { data: responseRows } = await supabase
+        const responsesResult = await supabase
             .from("blast_responses")
             .select("*")
             .in("blast_id", blastIds.length > 0 ? blastIds : ["__none__"])
-            .order("notified_at", { ascending: true }) as unknown as { data: BlastResponse[] | null };
+            .order("notified_at", { ascending: true });
+        if (responsesResult.error) {
+            console.error("Failed to fetch responses:", responsesResult.error);
+        }
+        const responseRows = responsesResult.data as BlastResponse[] | null;
 
         const responsesByBlast = new Map<string, BlastResponse[]>();
         for (const r of responseRows ?? []) {
@@ -154,7 +160,7 @@ export function useDispatchBlast() {
                 : new Date(Date.now() + 30 * 60_000).toISOString(); // default 30 min
 
             // 1. Create the blast
-            const { data: blast, error: blastErr } = await supabase
+            const blastInsertResult = await supabase
                 .from("dispatch_blasts")
                 .insert({
                     load_id: params.loadId,
@@ -167,7 +173,9 @@ export function useDispatchBlast() {
                     drivers_notified: params.driverIds.length,
                 })
                 .select("*")
-                .single() as unknown as { data: DispatchBlast | null; error: { message: string } | null };
+                .single();
+            const { error: blastErr } = blastInsertResult;
+            const blast = blastInsertResult.data as DispatchBlast | null;
 
             if (blastErr || !blast) {
                 toast({
@@ -187,7 +195,7 @@ export function useDispatchBlast() {
 
             const { error: respErr } = await supabase
                 .from("blast_responses")
-                .insert(responseRows) as unknown as { error: unknown };
+                .insert(responseRows);
 
             if (respErr) {
                 console.error("Failed to create response rows:", respErr);
@@ -218,7 +226,7 @@ export function useDispatchBlast() {
             const { error } = await supabase
                 .from("dispatch_blasts")
                 .update({ status: "cancelled", updated_at: new Date().toISOString() })
-                .eq("id", blastId) as unknown as { error: { message: string } | null };
+                .eq("id", blastId);
 
             if (error) {
                 toast({ title: "Cancel failed", description: error.message, variant: "destructive" });
@@ -248,7 +256,7 @@ export function useDispatchBlast() {
                     longitude: lng ?? null,
                 })
                 .eq("blast_id", blastId)
-                .eq("driver_id", driverId) as unknown as { error: { message: string } | null };
+                .eq("driver_id", driverId);
 
             if (error) {
                 toast({
@@ -274,9 +282,9 @@ export function useDispatchBlast() {
             const rpcResult = await supabase.rpc("confirm_blast_assignment", {
                 p_blast_id: blastId,
                 p_driver_id: driverId,
-            }) as unknown as { data: { success: boolean; error?: string; load_id?: string } | null; error: { message: string } | null };
-
-            const { data, error } = rpcResult;
+            });
+            const { error } = rpcResult;
+            const data = rpcResult.data as { success: boolean; error?: string; load_id?: string } | null;
 
             if (error || !data?.success) {
                 toast({
@@ -308,7 +316,7 @@ export function useDispatchBlast() {
                     response_time_ms: null, // will be computed
                 })
                 .eq("blast_id", blastId)
-                .eq("driver_id", driverId) as unknown as { error: unknown };
+                .eq("driver_id", driverId);
 
             if (!error) {
                 // Increment decline counter on the blast
