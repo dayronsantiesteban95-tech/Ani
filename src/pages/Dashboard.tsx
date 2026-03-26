@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatCardsSkeleton, ChartSkeleton } from "@/components/PageSkeleton";
 import {
   TrendingUp, CheckSquare, AlertTriangle, Users, Building2, UserCheck,
   CalendarClock, BarChart3, Truck, Clock, DollarSign, ClipboardList, ArrowRight,
@@ -15,6 +16,7 @@ import {
 import { LEAD_STAGES, TASK_PRIORITIES, TASK_STATUSES, DEPARTMENTS } from "@/lib/constants";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import type { Tables } from "@/integrations/supabase/types";
+import { SectionErrorBoundary } from "@/components/SectionErrorBoundary";
 const AiChatbot = lazy(() => import("@/components/AiChatbot"));
 
 const STAGE_COLORS = ["hsl(30,100%,50%)", "hsl(200,80%,50%)", "hsl(260,60%,55%)", "hsl(340,70%,50%)", "hsl(140,60%,45%)"];
@@ -33,19 +35,15 @@ const deptLabel = (dept: string | null) => {
 
 function DashboardSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in">
       <div>
         <Skeleton className="h-8 w-40" />
         <Skeleton className="h-4 w-56 mt-2" />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-28 rounded-2xl" />
-        ))}
-      </div>
+      <StatCardsSkeleton count={6} />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Skeleton className="h-72 rounded-2xl" />
-        <Skeleton className="h-72 rounded-2xl" />
+        <ChartSkeleton />
+        <ChartSkeleton />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Skeleton className="h-64 rounded-2xl lg:col-span-2" />
@@ -204,6 +202,7 @@ export default function Dashboard() {
         <p className="text-muted-foreground text-sm mt-1">Welcome to Anika Operations</p>
       </div>
 
+      <SectionErrorBoundary>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {statCards.map((s) => (
           <Card key={s.label} className="shadow-sm border-0 glass-card rounded-2xl hover:scale-[1.03] transition-transform duration-300 cursor-default relative accent-bar">
@@ -222,8 +221,10 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+      </SectionErrorBoundary>
 
       {/* ── Today's Operations Summary ── */}
+      <SectionErrorBoundary>
       {opsStats && (
         <Card className="shadow-sm border-0 glass-card rounded-2xl relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-accent/5 to-transparent pointer-events-none" />
@@ -271,7 +272,9 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       )}
+      </SectionErrorBoundary>
 
+      <SectionErrorBoundary>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="shadow-sm border-0 glass-card rounded-2xl">
           <CardHeader className="pb-2">
@@ -323,7 +326,9 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+      </SectionErrorBoundary>
 
+      <SectionErrorBoundary>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="shadow-sm border-0 glass-card rounded-2xl lg:col-span-2">
           <CardHeader className="pb-2">
@@ -400,6 +405,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+      </SectionErrorBoundary>
       <Suspense fallback={null}><AiChatbot /></Suspense>
     </div>
   );

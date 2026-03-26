@@ -29,6 +29,7 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatCardsSkeleton, TableSkeleton } from "@/components/PageSkeleton";
 import {
     Truck, Clock, DollarSign, Plus, Pencil, Trash2, MapPin,
     AlertTriangle, CheckCircle, BarChart3, FileText, Copy, Timer, Package,
@@ -52,6 +53,7 @@ import ActivityLog from "@/components/ActivityLog";
 import { useRealtimeDriverMap } from "@/hooks/useRealtimeDriverMap";
 import LoadDetailPanel from "@/components/LoadDetailPanel";
 import type { LoadDetail } from "@/components/LoadDetailPanel";
+import { SectionErrorBoundary } from "@/components/SectionErrorBoundary";
 
 // ─── Types ──────────────────────────────────────────
 type Driver = { id: string; full_name: string; hub: string; status: string };
@@ -375,10 +377,13 @@ export default function DispatchTracker() {
 
     // ── Skeleton ─────────────────────────────
     if (loading) return (
-        <div className="space-y-4 animate-in">
-            <Skeleton className="h-8 w-64" />
-            <div className="grid grid-cols-4 gap-4">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div>
-            <Skeleton className="h-96 rounded-2xl" />
+        <div className="space-y-6 animate-in">
+            <div>
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-80 mt-2" />
+            </div>
+            <StatCardsSkeleton count={4} />
+            <TableSkeleton rows={8} />
         </div>
     );
 
@@ -555,6 +560,7 @@ export default function DispatchTracker() {
                     <div className={`grid gap-4 ${toolsOpen ? "grid-cols-1 lg:grid-cols-3" : "grid-cols-1"}`}>
                         {/* Load Table */}
                         <div className={toolsOpen ? "lg:col-span-2" : ""}>
+                            <SectionErrorBoundary>
                             <Card className="glass-card rounded-2xl overflow-hidden">
                                 <Table>
                                     <TableHeader>
@@ -664,10 +670,12 @@ export default function DispatchTracker() {
                                     </TableBody>
                                 </Table>
                             </Card>
+                            </SectionErrorBoundary>
                         </div>
 
                         {/* Tools Sidebar */}
                         {toolsOpen && (
+                            <SectionErrorBoundary>
                             <div className="space-y-4">
                                 {/* Tool Tabs */}
                                 <div className="flex gap-1 flex-wrap">
@@ -756,6 +764,7 @@ export default function DispatchTracker() {
                                     <ActivityLog compact />
                                 )}
                             </div>
+                            </SectionErrorBoundary>
                         )}
                     </div>
                 </TabsContent>

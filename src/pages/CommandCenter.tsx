@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import LoadDetailPanel from "@/components/LoadDetailPanel";
 import type { LoadDetail } from "@/components/LoadDetailPanel";
+import { SectionErrorBoundary } from "@/components/SectionErrorBoundary";
 
 // ═══════════════════════════════════════════
 // Types
@@ -521,15 +522,18 @@ export default function CommandCenter() {
     return (
         <div className="cc-layout">
             {/* ────── MAP ────── */}
+            <SectionErrorBoundary>
             <div className="cc-map-container">
                 <MapPlaceholder
                     driverCount={metrics.activeDrivers}
                     loadCount={metrics.inProgress}
                 />
             </div>
+            </SectionErrorBoundary>
 
             {/* ────── METRICS BAR (top) ────── */}
             <div className="cc-metrics-bar">
+                <SectionErrorBoundary>
                 <div className="flex-1 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
                     <MetricCard label="Today's Loads" value={metrics.total} icon={Package} />
                     <MetricCard
@@ -564,6 +568,7 @@ export default function CommandCenter() {
                         variant="success"
                     />
                 </div>
+                </SectionErrorBoundary>
                 {/* Sidebar toggle */}
                 <div className="flex items-start">
                     <Button
@@ -753,6 +758,7 @@ export default function CommandCenter() {
             )}
 
             {/* ────── ALERT PANEL (bottom-left) ────── */}
+            <SectionErrorBoundary>
             {combinedAlerts.length > 0 && !showSidebar && (
                 <div className="cc-alert-panel cc-overlay-panel animate-panel-up p-3 space-y-2 sleek-scroll">
                     <div className="flex items-center justify-between mb-1">
@@ -786,6 +792,7 @@ export default function CommandCenter() {
                     ))}
                 </div>
             )}
+            </SectionErrorBoundary>
 
             {/* ────── LIVE INDICATOR (bottom-right when sidebar hidden) ────── */}
             {!showSidebar && (
