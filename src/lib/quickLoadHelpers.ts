@@ -41,7 +41,7 @@ export function generateReference(): string {
   const datePart = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const rand = (Date.now() % 100000).toString(36).toUpperCase() +
     Math.random().toString(36).substring(2, 4).toUpperCase();
-  return \`ANK-\${datePart}-\${rand.slice(0, 5)}\`;
+  return `ANK-${datePart}-${rand.slice(0, 5)}`;
 }
 
 export function cloneLoadData(existingLoad: Record<string, unknown>): Partial<OrderFormData> {
