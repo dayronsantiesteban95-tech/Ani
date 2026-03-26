@@ -64,19 +64,8 @@ interface DailyLoadRow {
 interface DriverShiftRow {
     id: string;
     driver_id: string;
-    started_at: string;
-    ended_at: string | null;
-}
-
-type DbQuery<T> = Promise<{ data: T[] | null; error: unknown }> & {
-    select(cols: string): DbQuery<T>;
-    order(col: string, opts: { ascending: boolean }): DbQuery<T>;
-    limit(count: number): DbQuery<T>;
-    eq(col: string, val: string): DbQuery<T>;
-};
-
-interface DbAdapter {
-    from<T>(table: string): DbQuery<T>;
+    shift_start: string;
+    shift_end: string | null;
 }
 
 // ─── Action → icon/color mapping ──────────────────────
@@ -118,23 +107,22 @@ export default function ActivityLog({
     const fetchActivity = useCallback(async () => {
         setLoading(true);
 
-        const db = supabase as unknown as DbAdapter;
-
         // Build activity from load_status_events + daily_loads recent changes
         const activities: ActivityEntry[] = [];
 
         // 1. Status events
         try {
-            let query = db.from<StatusEventRow>("load_status_events")
-                .select("id, load_id, new_status, old_status, note, recorded_at, changed_by")
+            let eventsQuery = supabase
+                .from("load_status_events")
+                .select("id, load_id, new_status, old_status, note, recorded_at")
                 .order("recorded_at", { ascending: false })
                 .limit(limit);
 
-            if (loadId) query = query.eq("load_id", loadId);
+            if (loadId) eventsQuery = eventsQuery.eq("load_id", loadId);
 
-            const { data: events } = await query;
+            const { data: events, error: eventsError } = await eventsQuery;
 
-            if (events) {
+            if (!eventsError && events) {
                 for (const evt of events) {
                     activities.push({
                         id: `evt-${evt.id}`,
@@ -152,16 +140,17 @@ export default function ActivityLog({
 
         // 2. Recent loads (created)
         try {
-            let query = db.from<DailyLoadRow>("daily_loads")
+            let loadsQuery = supabase
+                .from("daily_loads")
                 .select("id, reference_number, client_name, status, created_at, driver_id, updated_at")
                 .order("created_at", { ascending: false })
                 .limit(limit);
 
-            if (loadId) query = query.eq("id", loadId);
+            if (loadId) loadsQuery = loadsQuery.eq("id", loadId);
 
-            const { data: loads } = await query;
+            const { data: loads, error: loadsError } = await loadsQuery;
 
-            if (loads) {
+            if (!loadsError && loads) {
                 for (const load of loads) {
                     activities.push({
                         id: `load-created-${load.id}`,
@@ -188,24 +177,25 @@ export default function ActivityLog({
 
         // 3. Driver shifts
         try {
-            let query = db.from<DriverShiftRow>("driver_shifts")
-                .select("id, driver_id, started_at, ended_at")
-                .order("started_at", { ascending: false })
+            let shiftsQuery = supabase
+                .from("driver_shifts")
+                .select("id, driver_id, shift_start, shift_end")
+                .order("shift_start", { ascending: false })
                 .limit(20);
 
-            if (driverId) query = query.eq("driver_id", driverId);
+            if (driverId) shiftsQuery = shiftsQuery.eq("driver_id", driverId);
 
-            const { data: shifts } = await query;
+            const { data: shifts, error: shiftsError } = await shiftsQuery;
 
-            if (shifts) {
+            if (!shiftsError && shifts) {
                 for (const shift of shifts) {
                     activities.push({
                         id: `shift-${shift.id}`,
-                        action: shift.ended_at ? "Shift ended" : "Shift started",
+                        action: shift.shift_end ? "Shift ended" : "Shift started",
                         entity_type: "driver",
                         entity_id: shift.driver_id,
-                        details: shift.ended_at ? "Driver went off duty" : "Driver went on duty",
-                        timestamp: shift.ended_at ?? shift.started_at,
+                        details: shift.shift_end ? "Driver went off duty" : "Driver went on duty",
+                        timestamp: shift.shift_end ?? shift.shift_start,
                     });
                 }
             }
