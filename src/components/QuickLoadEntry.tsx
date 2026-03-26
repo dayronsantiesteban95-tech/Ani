@@ -175,6 +175,9 @@ export default function QuickLoadEntry({
                     .limit(100),
             ]);
 
+            if (addrRes.error) { console.error("Failed to fetch addresses:", addrRes.error.message); }
+            if (clientRes.error) { console.error("Failed to fetch clients:", clientRes.error.message); }
+
             if (addrRes.data) {
                 const all = [
                     ...addrRes.data.map((d) => d.delivery_address),
@@ -209,11 +212,12 @@ export default function QuickLoadEntry({
         }
         const timeout = setTimeout(async () => {
             try {
-                const { data } = await supabase
+                const { data, error } = await supabase
                     .from("contacts")
                     .select("email, phone, first_name, last_name")
                     .or(`first_name.ilike.%${form.client_name}%,last_name.ilike.%${form.client_name}%`)
                     .limit(1);
+                if (error) { console.error("Failed to fetch contact info:", error.message); return; }
 
                 if (data && data.length > 0) {
                     setClientInfo({

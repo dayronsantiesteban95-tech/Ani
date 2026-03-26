@@ -209,7 +209,8 @@ export default function NurtureEngine() {
 
   // ── Fetch Settings ──
   const fetchSettings = useCallback(async () => {
-    const { data } = await supabase.from("nurture_settings").select("setting_key, setting_value");
+    const { data, error } = await supabase.from("nurture_settings").select("setting_key, setting_value");
+    if (error) { console.error("Failed to fetch nurture settings:", error.message); return; }
     if (data) {
       const s = { ...DEFAULT_SETTINGS };
       for (const row of data) {
@@ -226,10 +227,11 @@ export default function NurtureEngine() {
     if (!user) return;
     const entries = Object.entries(settingsForm) as [string, number][];
     for (const [key, value] of entries) {
-      await supabase.from("nurture_settings").upsert(
+      const { error: upsertErr } = await supabase.from("nurture_settings").upsert(
         { setting_key: key, setting_value: String(value), updated_by: user.id },
         { onConflict: "setting_key" }
       );
+      if (upsertErr) { console.error("Failed to save setting:", upsertErr.message); return; }
     }
     setSettings(settingsForm);
     setShowSettings(false);
@@ -238,21 +240,23 @@ export default function NurtureEngine() {
 
   // ── Fetch Follow-Up Today ──
   const fetchFollowUps = useCallback(async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("lead_sequences")
       .select("*")
       .lte("follow_up_date", today)
       .eq("status", "pending")
       .neq("response_status", "cold")
       .order("follow_up_date", { ascending: true });
+    if (error) { console.error("Failed to fetch follow-ups:", error.message); return; }
     if (!data) return;
     setFollowUps(data as SequenceStep[]);
     const leadIds = [...new Set(data.map((d) => d.lead_id))];
     if (leadIds.length) {
-      const { data: leads } = await supabase
+      const { data: leads, error: leadsErr } = await supabase
         .from("leads")
         .select("id, company_name, contact_person, city_hub, industry, email, stage")
         .in("id", leadIds);
+      if (leadsErr) { console.error("Failed to fetch follow-up leads:", leadsErr.message); return; }
       if (leads) {
         const map: Record<string, LeadWithSequences> = {};
         for (const l of leads) map[l.id] = l as LeadWithSequences;
@@ -263,20 +267,22 @@ export default function NurtureEngine() {
 
   // ── Fetch Needs Attention ──
   const fetchAttention = useCallback(async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("lead_sequences")
       .select("*")
       .in("response_status", ["replied", "interested_call"])
       .neq("status", "completed")
       .order("updated_at", { ascending: false });
+    if (error) { console.error("Failed to fetch attention steps:", error.message); return; }
     if (!data) return;
     setAttentionSteps(data as SequenceStep[]);
     const leadIds = [...new Set(data.map((d) => d.lead_id))];
     if (leadIds.length) {
-      const { data: leads } = await supabase
+      const { data: leads, error: leadsErr } = await supabase
         .from("leads")
         .select("id, company_name, contact_person, city_hub, industry, email, stage")
         .in("id", leadIds);
+      if (leadsErr) { console.error("Failed to fetch attention leads:", leadsErr.message); return; }
       if (leads) {
         const map: Record<string, LeadWithSequences> = {};
         for (const l of leads) map[l.id] = l as LeadWithSequences;
@@ -287,20 +293,22 @@ export default function NurtureEngine() {
 
   // ── Fetch Sequence Tracker ──
   const fetchTracker = useCallback(async () => {
-    const { data: leads } = await supabase
+    const { data: leads, error: leadsErr } = await supabase
       .from("leads")
       .select("id, company_name, contact_person, city_hub, industry, email, stage")
       .eq("stage", "new_lead")
       .order("created_at", { ascending: false });
+    if (leadsErr) { console.error("Failed to fetch tracker leads:", leadsErr.message); return; }
     if (!leads) return;
     setTrackerLeads(leads as LeadWithSequences[]);
     const leadIds = leads.map((l) => l.id);
     if (leadIds.length) {
-      const { data: seqs } = await supabase
+      const { data: seqs, error: seqsErr } = await supabase
         .from("lead_sequences")
         .select("*")
         .in("lead_id", leadIds)
         .order("created_at", { ascending: true });
+      if (seqsErr) { console.error("Failed to fetch tracker sequences:", seqsErr.message); return; }
       if (seqs) {
         const map: Record<string, SequenceStep[]> = {};
         const coldMap: { lead: LeadWithSequences; steps: SequenceStep[] }[] = [];
@@ -322,10 +330,11 @@ export default function NurtureEngine() {
 
   // ── Fetch Templates ──
   const fetchTemplates = useCallback(async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("email_templates")
       .select("*")
       .order("hub", { ascending: true });
+    if (error) { console.error("Failed to fetch templates:", error.message); return; }
     if (data) setTemplates(data as EmailTemplate[]);
   }, []);
 
@@ -383,25 +392,29 @@ export default function NurtureEngine() {
 
   const handleReplied = async (step: SequenceStep, note?: string) => {
     if (!user) return;
-    await supabase.from("lead_sequences").update({
+    const { error: e1 } = await supabase.from("lead_sequences").update({
       status: "completed",
       response_status: "replied",
       ...(note ? { note } : {}),
     }).eq("id", step.id);
+    if (e1) { console.error("Failed to mark replied:", e1.message); return; }
     // Stop all other pending/paused steps for this lead
-    await supabase.from("lead_sequences").update({
+    const { error: e2 } = await supabase.from("lead_sequences").update({
       status: "completed",
       response_status: "stopped",
     }).eq("lead_id", step.lead_id).in("status", ["pending", "paused"]).neq("id", step.id);
-    await supabase.from("leads").update({ stage: "qualified" }).eq("id", step.lead_id);
+    if (e2) { console.error("Failed to stop other steps:", e2.message); return; }
+    const { error: e3 } = await supabase.from("leads").update({ stage: "qualified" }).eq("id", step.lead_id);
+    if (e3) { console.error("Failed to update lead stage:", e3.message); return; }
     const lead = followUpLeads[step.lead_id] || trackerLeads.find((l) => l.id === step.lead_id);
-    await supabase.from("tasks").insert({
+    const { error: e4 } = await supabase.from("tasks").insert({
       title: `Call ${lead?.company_name || "lead"} - they replied!`,
       status: "todo",
       priority: "high",
       department: "prospecting",
       created_by: user.id,
     });
+    if (e4) { console.error("Failed to create task:", e4.message); }
     toast({ title: "🎉 Lead Replied!", description: `${lead?.company_name} moved to Qualified.` });
     fetchFollowUps();
     fetchTracker();
@@ -410,30 +423,34 @@ export default function NurtureEngine() {
 
   const handleInterestedCall = async (step: SequenceStep, note?: string) => {
     // Update sequence status
-    await supabase.from("lead_sequences").update({
+    const { error: e1 } = await supabase.from("lead_sequences").update({
       response_status: "interested_call",
       status: "completed",
       ...(note ? { note } : {}),
     }).eq("id", step.id);
+    if (e1) { console.error("Failed to update sequence:", e1.message); return; }
     // Stop all other pending/paused steps for this lead
-    await supabase.from("lead_sequences").update({
+    const { error: e2 } = await supabase.from("lead_sequences").update({
       status: "completed",
       response_status: "stopped",
     }).eq("lead_id", step.lead_id).in("status", ["pending", "paused"]).neq("id", step.id);
+    if (e2) { console.error("Failed to stop other steps:", e2.message); return; }
 
     // Auto-promote lead to "qualified" stage in the Growth Pipeline
     const stepLabel = STEP_LABELS[step.step_type] || step.step_type;
-    await supabase.from("leads").update({
+    const { error: e3 } = await supabase.from("leads").update({
       stage: "qualified",
     }).eq("id", step.lead_id);
+    if (e3) { console.error("Failed to promote lead:", e3.message); return; }
 
     // Log an interaction noting the promotion
-    await supabase.from("lead_interactions").insert({
+    const { error: e4 } = await supabase.from("lead_interactions").insert({
       lead_id: step.lead_id,
       activity_type: "note",
       note: `🟢 Auto-promoted to Qualified — replied "Interested" on ${stepLabel}. ${note || ""}`.trim(),
       created_by: (await supabase.auth.getUser()).data.user?.id,
     });
+    if (e4) { console.error("Failed to log interaction:", e4.message); }
 
     toast({ title: "Lead Promoted to Qualified! 🎉", description: "Lead moved to Growth Pipeline and flagged for call scheduling." });
     fetchFollowUps();
@@ -446,17 +463,20 @@ export default function NurtureEngine() {
     if (!user) return;
     const lead = attentionLeads[step.lead_id];
     // Move to negotiation
-    await supabase.from("leads").update({ stage: "negotiation" }).eq("id", step.lead_id);
+    const { error: e1 } = await supabase.from("leads").update({ stage: "negotiation" }).eq("id", step.lead_id);
+    if (e1) { console.error("Failed to update lead stage:", e1.message); return; }
     // Mark sequence completed
-    await supabase.from("lead_sequences").update({ status: "completed" }).eq("lead_id", step.lead_id);
+    const { error: e2 } = await supabase.from("lead_sequences").update({ status: "completed" }).eq("lead_id", step.lead_id);
+    if (e2) { console.error("Failed to complete sequence:", e2.message); return; }
     // Create task
-    await supabase.from("tasks").insert({
+    const { error: e3 } = await supabase.from("tasks").insert({
       title: `Schedule call with ${lead?.company_name || "lead"}`,
       status: "todo",
       priority: "high",
       department: "prospecting",
       created_by: user.id,
     });
+    if (e3) { console.error("Failed to create task:", e3.message); }
     toast({ title: "📞 Call Scheduled", description: `${lead?.company_name} moved to Negotiation.` });
     fetchAttention();
     fetchTracker();
@@ -464,10 +484,11 @@ export default function NurtureEngine() {
 
   const handleNurture30d = async (step: SequenceStep) => {
     const newDate = format(addDays(new Date(), 30), "yyyy-MM-dd");
-    await supabase.from("lead_sequences").update({
+    const { error } = await supabase.from("lead_sequences").update({
       follow_up_date: newDate,
       response_status: "nurture_30d",
     }).eq("id", step.id);
+    if (error) { console.error("Failed to set nurture:", error.message); return; }
     toast({ title: "🔄 30-day nurture", description: "Lead will resurface in 30 days." });
     fetchAttention();
     fetchFollowUps();
@@ -476,15 +497,18 @@ export default function NurtureEngine() {
   const handleOperationalReview = async (step: SequenceStep) => {
     if (!user) return;
     const lead = attentionLeads[step.lead_id];
-    await supabase.from("leads").update({ stage: "operational_review" }).eq("id", step.lead_id);
-    await supabase.from("lead_sequences").update({ status: "completed" }).eq("lead_id", step.lead_id);
-    await supabase.from("tasks").insert({
+    const { error: e1 } = await supabase.from("leads").update({ stage: "operational_review" }).eq("id", step.lead_id);
+    if (e1) { console.error("Failed to update lead stage:", e1.message); return; }
+    const { error: e2 } = await supabase.from("lead_sequences").update({ status: "completed" }).eq("lead_id", step.lead_id);
+    if (e2) { console.error("Failed to complete sequence:", e2.message); return; }
+    const { error: e3 } = await supabase.from("tasks").insert({
       title: `Pre-flight checklist: docks/white-glove for ${lead?.company_name || "lead"}`,
       status: "todo",
       priority: "high",
       department: "operations",
       created_by: user.id,
     });
+    if (e3) { console.error("Failed to create task:", e3.message); }
     toast({ title: "🔧 Operational Review", description: `${lead?.company_name} moved to Operational Review.` });
     fetchAttention();
     fetchTracker();
@@ -515,7 +539,8 @@ export default function NurtureEngine() {
   const markCold = async (leadId: string, steps: SequenceStep[]) => {
     const lastStep = steps[steps.length - 1];
     if (lastStep) {
-      await supabase.from("lead_sequences").update({ response_status: "cold" }).eq("id", lastStep.id);
+      const { error } = await supabase.from("lead_sequences").update({ response_status: "cold" }).eq("id", lastStep.id);
+      if (error) { console.error("Failed to mark cold:", error.message); return; }
     }
     toast({ title: "Lead marked cold", description: "Moved to Cold Leads section." });
     fetchTracker();
@@ -526,7 +551,8 @@ export default function NurtureEngine() {
     const steps = leadSequences[leadId] || [];
     for (const s of steps) {
       if (s.response_status === "cold") {
-        await supabase.from("lead_sequences").update({ response_status: "no_response" }).eq("id", s.id);
+        const { error } = await supabase.from("lead_sequences").update({ response_status: "no_response" }).eq("id", s.id);
+        if (error) { console.error("Failed to revive lead step:", error.message); return; }
       }
     }
     toast({ title: "Lead revived", description: "Lead is back in the tracker." });
@@ -558,10 +584,12 @@ export default function NurtureEngine() {
       body: fd.get("body") as string,
     };
     if (editTemplate) {
-      await supabase.from("email_templates").update(payload).eq("id", editTemplate.id);
+      const { error } = await supabase.from("email_templates").update(payload).eq("id", editTemplate.id);
+      if (error) { console.error("Failed to update template:", error.message); return; }
       toast({ title: "Template updated" });
     } else {
-      await supabase.from("email_templates").insert({ ...payload, created_by: user.id });
+      const { error } = await supabase.from("email_templates").insert({ ...payload, created_by: user.id });
+      if (error) { console.error("Failed to create template:", error.message); return; }
       toast({ title: "Template created" });
     }
     setShowTemplateForm(false);
@@ -570,7 +598,8 @@ export default function NurtureEngine() {
   };
 
   const deleteTemplate = async (id: string) => {
-    await supabase.from("email_templates").delete().eq("id", id);
+    const { error } = await supabase.from("email_templates").delete().eq("id", id);
+    if (error) { console.error("Failed to delete template:", error.message); return; }
     fetchTemplates();
     toast({ title: "Template deleted" });
   };
