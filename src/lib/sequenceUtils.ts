@@ -62,7 +62,11 @@ const DEFAULT_CADENCE = {
  * Fetch the nurture cadence settings from the database, or use defaults.
  */
 async function getCadenceSettings(): Promise<{ email1_to_email2_days: number; email2_to_call_days: number }> {
-    const { data } = await supabase.from("nurture_settings").select("setting_key, setting_value");
+    const { data, error } = await supabase.from("nurture_settings").select("setting_key, setting_value");
+    if (error) {
+        console.error("Failed to fetch nurture settings:", error.message);
+        return DEFAULT_CADENCE;
+    }
     if (!data) return DEFAULT_CADENCE;
     const result = { ...DEFAULT_CADENCE };
     for (const row of data) {

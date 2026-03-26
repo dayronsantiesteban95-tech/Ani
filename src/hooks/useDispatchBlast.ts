@@ -202,13 +202,17 @@ export function useDispatchBlast() {
             }
 
             // 3. Update load status to show it's being blasted
-            await supabase
+            const { error: loadErr } = await supabase
                 .from("daily_loads")
                 .update({
                     status: "blasted",
                     updated_at: new Date().toISOString(),
                 })
                 .eq("id", params.loadId);
+
+            if (loadErr) {
+                console.error("Failed to update load status:", loadErr.message);
+            }
 
             toast({
                 title: "📡 Blast Sent!",
@@ -232,12 +236,15 @@ export function useDispatchBlast() {
                 toast({ title: "Cancel failed", description: error.message, variant: "destructive" });
             } else {
                 // Expire all pending responses
-                await supabase
+                const { error: expireErr } = await supabase
                     .from("blast_responses")
                     .update({ status: "expired", responded_at: new Date().toISOString() })
                     .eq("blast_id", blastId)
                     .in("status", ["pending", "viewed"]);
 
+                if (expireErr) {
+                    console.error("Failed to expire blast responses:", expireErr.message);
+                }
                 toast({ title: "Blast cancelled" });
             }
         },
