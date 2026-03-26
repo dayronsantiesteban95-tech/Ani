@@ -73,10 +73,11 @@ export default function RouteOptimizerPanel({
                     lat = coords.lat;
                     lng = coords.lng;
                     // Save geocoded coordinates back to DB
-                    await supabase.from("daily_loads").update({
+                    const { error: geoError } = await supabase.from("daily_loads").update({
                         delivery_lat: lat,
                         delivery_lng: lng,
                     }).eq("id", load.id);
+                    if (geoError) { console.error("Failed to update geocoded coordinates:", geoError.message); }
                 }
                 // Rate limit (Nominatim: 1 req/sec)
                 await new Promise((r) => setTimeout(r, 1100));
@@ -117,10 +118,11 @@ export default function RouteOptimizerPanel({
 
         // Update route_order and estimated_arrival for each load
         for (const stop of optimized.stops) {
-            await supabase.from("daily_loads").update({
+            const { error: applyError } = await supabase.from("daily_loads").update({
                 route_order: stop.order,
                 estimated_arrival: stop.estimatedArrival,
             }).eq("id", stop.id);
+            if (applyError) { console.error("Failed to apply route order:", applyError.message); }
         }
 
         toast({ title: "✅ Route applied", description: "Load order and ETAs updated in the load board." });

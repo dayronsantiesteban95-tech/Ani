@@ -44,7 +44,8 @@ export default function Companies() {
   const { toast } = useToast();
 
   const fetch = useCallback(async () => {
-    const { data } = await supabase.from("companies").select("*").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("companies").select("*").order("created_at", { ascending: false });
+    if (error) { console.error("Failed to fetch companies:", error.message); setLoading(false); return; }
     if (data) setCompanies(data as Company[]);
     setLoading(false);
   }, []);
@@ -82,7 +83,8 @@ export default function Companies() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    await supabase.from("companies").delete().eq("id", deleteId);
+    const { error } = await supabase.from("companies").delete().eq("id", deleteId);
+    if (error) { console.error("Failed to delete company:", error.message); return; }
     setDeleteId(null);
     fetch();
   };

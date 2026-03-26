@@ -95,11 +95,13 @@ export default function AutoDispatchPanel({
 
         // 2. Get today's load counts per driver
         const today = new Date().toISOString().split("T")[0];
-        const { data: loadCounts } = await supabase
+        const { data: loadCounts, error: loadCountsError } = await supabase
             .from("daily_loads")
             .select("driver_id")
             .eq("load_date", today)
             .neq("status", "cancelled");
+
+        if (loadCountsError) { console.error("Failed to fetch load counts:", loadCountsError.message); }
 
         const countMap = new Map<string, number>();
         for (const lc of loadCounts ?? []) {

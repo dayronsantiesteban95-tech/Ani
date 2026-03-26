@@ -49,14 +49,15 @@ export default function Contacts() {
   const { toast } = useToast();
 
   const fetch = useCallback(async () => {
-    const { data } = await supabase.from("contacts").select("*").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("contacts").select("*").order("created_at", { ascending: false });
+    if (error) { console.error("Failed to fetch contacts:", error.message); setLoading(false); return; }
     if (data) setContacts(data as Contact[]);
     setLoading(false);
   }, []);
 
   useEffect(() => {
     fetch();
-    supabase.from("companies").select("id, name").then(({ data }) => { if (data) setCompanies(data); });
+    supabase.from("companies").select("id, name").then(({ data, error }) => { if (error) { console.error("Failed to fetch companies:", error.message); return; } if (data) setCompanies(data); });
   }, [fetch]);
 
   useEffect(() => {
@@ -90,7 +91,8 @@ export default function Contacts() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    await supabase.from("contacts").delete().eq("id", deleteId);
+    const { error } = await supabase.from("contacts").delete().eq("id", deleteId);
+    if (error) { console.error("Failed to delete contact:", error.message); return; }
     setDeleteId(null);
     fetch();
   };

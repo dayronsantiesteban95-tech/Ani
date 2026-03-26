@@ -161,14 +161,15 @@ export default function CommandBar() {
 
         // ── Search loads ──
         try {
-            const { data: loads } = await supabase
+            const { data: loads, error: loadsError } = await supabase
                 .from("daily_loads")
                 .select("id, reference_number, client_name, delivery_address, status, tracking_token, load_date")
                 .or(`reference_number.ilike.%${term}%,client_name.ilike.%${term}%,delivery_address.ilike.%${term}%,tracking_token.ilike.%${term}%`)
                 .order("load_date", { ascending: false })
                 .limit(6);
 
-            if (loads) {
+            if (loadsError) { console.error("Failed to fetch loads:", loadsError.message); }
+            else if (loads) {
                 for (const load of loads) {
                     const sb = statusBadge(load.status);
                     allResults.push({
@@ -188,13 +189,14 @@ export default function CommandBar() {
 
         // ── Search drivers ──
         try {
-            const { data: drivers } = await supabase
+            const { data: drivers, error: driversError } = await supabase
                 .from("drivers")
                 .select("id, full_name, hub, status, phone")
                 .or(`full_name.ilike.%${term}%,hub.ilike.%${term}%,phone.ilike.%${term}%`)
                 .limit(5);
 
-            if (drivers) {
+            if (driversError) { console.error("Failed to fetch drivers:", driversError.message); }
+            else if (drivers) {
                 for (const d of drivers) {
                     allResults.push({
                         id: `driver-${d.id}`,
@@ -213,13 +215,14 @@ export default function CommandBar() {
 
         // ── Search contacts/companies ──
         try {
-            const { data: contacts } = await supabase
+            const { data: contacts, error: contactsError } = await supabase
                 .from("contacts")
                 .select("id, first_name, last_name, email")
                 .or(`first_name.ilike.%${term}%,last_name.ilike.%${term}%,email.ilike.%${term}%`)
                 .limit(4);
 
-            if (contacts) {
+            if (contactsError) { console.error("Failed to fetch contacts:", contactsError.message); }
+            else if (contacts) {
                 for (const c of contacts) {
                     allResults.push({
                         id: `contact-${c.id}`,
