@@ -73,6 +73,30 @@ describe("useAuth", () => {
     expect(result.current.loading).toBe(false);
   });
 
+  it("clears user when onAuthStateChange fires with null session (sign-out)", async () => {
+    const mockUser = { id: "user-789", email: "active@example.com" };
+    let authChangeCallback: (event: string, session: unknown) => void = () => {};
+
+    (supabase.auth.onAuthStateChange as ReturnType<typeof vi.fn>).mockImplementation((cb) => {
+      authChangeCallback = cb;
+      return { data: { subscription: { unsubscribe: mockUnsubscribe } } };
+    });
+    (supabase.auth.getSession as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: { session: { user: mockUser } },
+    });
+
+    const { result } = renderHook(() => useAuth());
+
+    await waitFor(() => expect(result.current.user).toEqual(mockUser));
+
+    act(() => {
+      authChangeCallback("SIGNED_OUT", null);
+    });
+
+    await waitFor(() => expect(result.current.user).toBeNull());
+    expect(result.current.loading).toBe(false);
+  });
+
   it("unsubscribes from auth changes on unmount", async () => {
     const { unmount } = renderHook(() => useAuth());
     unmount();
