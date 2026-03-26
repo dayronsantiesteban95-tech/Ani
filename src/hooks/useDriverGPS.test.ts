@@ -221,4 +221,104 @@ describe("useDriverGPS", () => {
 
         await waitFor(() => expect(resolved).toBe(false));
     });
+
+    it("sendPing inserts position to supabase driver_locations", async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        const mockInsert = vi.fn().mockResolvedValue({ error: null });
+        vi.mocked(supabase.from).mockReturnValue({ insert: mockInsert } as never);
+
+        const { result } = renderHook(() =>
+            useDriverGPS({ driverId: "driver-1", enabled: false, intervalMs: 5000 })
+        );
+
+        act(() => {
+            result.current.startTracking();
+        });
+
+        // Simulate position update
+        act(() => {
+            watchSuccessCb?.(makeGeoPosition());
+        });
+
+        // The hook sends a ping after 2000ms timeout
+        await act(async () => {
+            vi.advanceTimersByTime(2500);
+        });
+
+        expect(supabase.from).toHaveBeenCalledWith("driver_locations");
+        expect(mockInsert).toHaveBeenCalledWith(
+            expect.objectContaining({
+                driver_id: "driver-1",
+                latitude: 34.05,
+                longitude: -118.24,
+            })
+        );
+
+        vi.useRealTimers();
+    });
+
+    it("increments pingCount after successful supabase insert", async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        vi.mocked(supabase.from).mockReturnValue({
+            insert: vi.fn().mockResolvedValue({ error: null }),
+        } as never);
+
+        const { result } = renderHook(() =>
+            useDriverGPS({ driverId: "driver-1", enabled: false, intervalMs: 5000 })
+        );
+
+        act(() => {
+            result.current.startTracking();
+        });
+
+        act(() => {
+            watchSuccessCb?.(makeGeoPosition());
+        });
+
+        expect(result.current.pingCount).toBe(0);
+
+        await act(async () => {
+            vi.advanceTimersByTime(2500);
+        });
+
+        await waitFor(() => {
+            expect(result.current.pingCount).toBe(1);
+        });
+
+        vi.useRealTimers();
+    });
+
+    it("sets permissionStatus to unavailable when geolocation is not supported", () => {
+        Object.defineProperty(navigator, "geolocation", {
+            value: undefined,
+            configurable: true,
+            writable: true,
+        });
+
+        const { result } = renderHook(() =>
+            useDriverGPS({ driverId: "driver-1", enabled: false })
+        );
+
+        expect(result.current.permissionStatus).toBe("unavailable");
+        expect(result.current.error).toBe("Geolocation not supported");
+    });
+
+    it("does not call watchPosition when geolocation is unavailable", () => {
+        Object.defineProperty(navigator, "geolocation", {
+            value: undefined,
+            configurable: true,
+            writable: true,
+        });
+
+        const { result } = renderHook(() =>
+            useDriverGPS({ driverId: "driver-1", enabled: false })
+        );
+
+        act(() => {
+            result.current.startTracking();
+        });
+
+        // tracking should remain false because navigator.geolocation is missing
+        expect(result.current.tracking).toBe(false);
+    });
 });

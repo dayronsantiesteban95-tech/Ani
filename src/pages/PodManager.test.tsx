@@ -53,4 +53,16 @@ describe("PodManager", () => {
     render(<PodManager />);
     expect(await screen.findByText(/Upload load documents/)).toBeInTheDocument();
   });
+
+  it("renders the page container element", async () => {
+    const { container } = render(<PodManager />);
+    await screen.findByText("POD Manager");
+    expect(container.innerHTML.length).toBeGreaterThan(100);
+  });
+
+  it("renders a non-empty page after data loads", async () => {
+    const { container } = render(<PodManager />);
+    await screen.findByText(/Upload load documents/);
+    expect(container.querySelector("div")).toBeTruthy();
+  });
 });

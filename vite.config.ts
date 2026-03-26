@@ -20,10 +20,27 @@ export default defineConfig(({ mode }) => ({
       output: {
         manualChunks(id) {
           if (id.includes("node_modules")) {
+            // ── Radix UI + its transitive deps (must be before vendor-react
+            //    so @floating-ui/react-dom doesn't match /react-dom/) ──
+            if (
+              id.includes("/@radix-ui/") ||
+              id.includes("/@floating-ui/") ||
+              id.includes("/react-remove-scroll") ||
+              id.includes("/react-style-singleton/") ||
+              id.includes("/use-callback-ref/") ||
+              id.includes("/use-sidecar/") ||
+              id.includes("/get-nonce/") ||
+              id.includes("/aria-hidden/")
+            ) {
+              return "vendor-ui";
+            }
+            // ── React core + router ──
             if (
               id.includes("/react/") ||
               id.includes("/react-dom/") ||
               id.includes("/react-router-dom/") ||
+              id.includes("/react-router/") ||
+              id.includes("/@remix-run/router/") ||
               id.includes("/scheduler/")
             ) {
               return "vendor-react";
@@ -31,10 +48,20 @@ export default defineConfig(({ mode }) => ({
             if (id.includes("/@tanstack/")) {
               return "vendor-query";
             }
-            if (id.includes("/@radix-ui/")) {
-              return "vendor-ui";
-            }
-            if (id.includes("/recharts/") || id.includes("/d3-")) {
+            // ── Recharts + d3 + ALL transitive deps (lodash, react-smooth, etc.) ──
+            if (
+              id.includes("/recharts/") ||
+              id.includes("/d3-") ||
+              id.includes("/lodash/") ||
+              id.includes("/react-smooth/") ||
+              id.includes("/recharts-scale/") ||
+              id.includes("/decimal.js-light/") ||
+              id.includes("/eventemitter3/") ||
+              id.includes("/fast-equals/") ||
+              id.includes("/react-is/") ||
+              id.includes("/prop-types/") ||
+              id.includes("/internmap/")
+            ) {
               return "vendor-charts";
             }
             if (
@@ -47,12 +74,16 @@ export default defineConfig(({ mode }) => ({
               return "vendor-supabase";
             }
             if (
-              id.includes("/date-fns/") ||
               id.includes("/clsx/") ||
               id.includes("/tailwind-merge/") ||
               id.includes("/class-variance-authority/")
             ) {
               return "vendor-utils";
+            }
+            // date-fns: let it code-split naturally with lazy pages that use it
+            // (no eagerly-loaded code imports it any more)
+            if (id.includes("/date-fns/")) {
+              return;
             }
             if (id.includes("/lucide-react/")) {
               return "vendor-icons";
@@ -86,7 +117,19 @@ export default defineConfig(({ mode }) => ({
               id.includes("/trough/") ||
               id.includes("/decode-named-character-reference/") ||
               id.includes("/estree-") ||
-              id.includes("/react-day-picker/")
+              id.includes("/react-day-picker/") ||
+              // Let remaining small deps (style-to-js, tiny-invariant, etc.)
+              // code-split naturally with their importing pages
+              id.includes("/style-to-js/") ||
+              id.includes("/style-to-object/") ||
+              id.includes("/inline-style-parser/") ||
+              id.includes("/html-url-attributes/") ||
+              id.includes("/trim-lines/") ||
+              id.includes("/extend/") ||
+              id.includes("/@ungap/") ||
+              id.includes("/tiny-invariant/") ||
+              id.includes("/iceberg-js/") ||
+              id.includes("/tslib/")
             ) {
               return;  // natural code-split with importing page
             }

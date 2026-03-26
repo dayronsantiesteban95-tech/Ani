@@ -90,4 +90,37 @@ describe("Dashboard", () => {
     const welcome = await screen.findByText("Welcome to Anika Operations", {}, { timeout: 3000 });
     expect(welcome).toBeInTheDocument();
   });
+
+  it("renders all six stat card labels after loading", async () => {
+    render(<Dashboard />);
+    const labels = ["Active Leads", "Tasks Due Today", "Overdue Follow-ups", "Accounts Won", "Companies", "Contacts"];
+    for (const label of labels) {
+      const el = await screen.findByText(label, {}, { timeout: 3000 });
+      expect(el).toBeInTheDocument();
+    }
+  });
+
+  it("renders Pipeline Funnel card header", async () => {
+    render(<Dashboard />);
+    const heading = await screen.findByText("Pipeline Funnel", {}, { timeout: 3000 });
+    expect(heading).toBeInTheDocument();
+  });
+
+  it("renders Recent Activity card header", async () => {
+    render(<Dashboard />);
+    const heading = await screen.findByText("Recent Activity", {}, { timeout: 3000 });
+    expect(heading).toBeInTheDocument();
+  });
+
+  it("renders My Tasks card header", async () => {
+    render(<Dashboard />);
+    const heading = await screen.findByText("My Tasks", {}, { timeout: 3000 });
+    expect(heading).toBeInTheDocument();
+  });
+
+  it("renders the AI chatbot component", async () => {
+    render(<Dashboard />);
+    const chatbot = await screen.findByTestId("ai-chatbot", {}, { timeout: 3000 });
+    expect(chatbot).toBeInTheDocument();
+  });
 });

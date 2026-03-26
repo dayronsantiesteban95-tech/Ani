@@ -43,4 +43,15 @@ describe("FleetTracker", () => {
     render(<FleetTracker />);
     expect(await screen.findByRole("button", { name: /add vehicle/i })).toBeInTheDocument();
   });
+
+  it("renders the subtitle description", async () => {
+    render(<FleetTracker />);
+    expect(await screen.findByText(/Vehicle management, maintenance scheduling/i)).toBeInTheDocument();
+  });
+
+  it("renders the container element after loading", async () => {
+    const { container } = render(<FleetTracker />);
+    await screen.findByText("Fleet Tracker");
+    expect(container.querySelector(".space-y-4")).toBeTruthy();
+  });
 });

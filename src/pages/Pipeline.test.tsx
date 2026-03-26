@@ -78,4 +78,39 @@ describe("Pipeline", () => {
     const input = await screen.findByPlaceholderText("Search leads...", {}, { timeout: 3000 });
     expect(input).toBeInTheDocument();
   });
+
+  it("renders all LEAD_STAGES column headers", async () => {
+    render(<Pipeline />);
+    // "New Lead" appears both as button text and column header, so use getAllByText
+    const stages = [
+      "Qualified / Needs Analysis", "Quote Sent / Proposal",
+      "Operational Review", "Trial Run / Pilot", "Account Active", "Retention / Check-in",
+    ];
+    for (const stage of stages) {
+      const el = await screen.findByText(stage, {}, { timeout: 3000 });
+      expect(el).toBeInTheDocument();
+    }
+    // "New Lead" appears as both button and header, verify at least 2 matches
+    const newLeadElements = await screen.findAllByText("New Lead", {}, { timeout: 3000 });
+    expect(newLeadElements.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("renders the subtitle description", async () => {
+    render(<Pipeline />);
+    const subtitle = await screen.findByText("Track and manage your prospecting leads", {}, { timeout: 3000 });
+    expect(subtitle).toBeInTheDocument();
+  });
+
+  it("renders city hub filter buttons including All", async () => {
+    render(<Pipeline />);
+    // The All filter button
+    const allBtn = await screen.findByRole("button", { name: "All" }, { timeout: 3000 });
+    expect(allBtn).toBeInTheDocument();
+  });
+
+  it("renders the LeadDetailPanel mock component", async () => {
+    render(<Pipeline />);
+    const panel = await screen.findByTestId("lead-detail-panel", {}, { timeout: 3000 });
+    expect(panel).toBeInTheDocument();
+  });
 });

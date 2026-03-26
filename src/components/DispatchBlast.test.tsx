@@ -139,4 +139,82 @@ describe("DispatchBlastPanel", () => {
         // Now 1 driver selected
         expect(screen.getByText(/Select Drivers \(1\)/)).toBeInTheDocument();
     });
+
+    it("renders blast history cards when blasts exist", () => {
+        mockUseDispatchBlast.mockReturnValue({
+            ...defaultHookReturn,
+            blasts: [
+                {
+                    id: "blast-1",
+                    load_id: "load-1",
+                    created_by: "user-1",
+                    hub: "phoenix",
+                    message: "Urgent load available",
+                    priority: "high",
+                    radius_miles: 50,
+                    expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+                    blast_sent_at: new Date().toISOString(),
+                    status: "active",
+                    accepted_by: null,
+                    accepted_at: null,
+                    drivers_notified: 3,
+                    drivers_viewed: 1,
+                    drivers_declined: 0,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                    responses: [
+                        {
+                            id: "resp-1",
+                            blast_id: "blast-1",
+                            driver_id: "driver-1",
+                            status: "interested",
+                            response_time_ms: 5000,
+                            decline_reason: null,
+                            latitude: null,
+                            longitude: null,
+                            distance_miles: null,
+                            notified_at: new Date().toISOString(),
+                            responded_at: new Date().toISOString(),
+                            created_at: new Date().toISOString(),
+                        },
+                    ],
+                },
+            ],
+        });
+
+        render(<DispatchBlastPanel loads={mockLoads} drivers={mockDrivers} compact={false} />);
+
+        // The blast card should show status and no empty state
+        expect(screen.queryByText("No blast history yet")).not.toBeInTheDocument();
+        // Should have high priority badge
+        expect(screen.getByText(/high/i)).toBeInTheDocument();
+    });
+
+    it("renders the create form with load and driver sections in non-compact mode", () => {
+        render(
+            <DispatchBlastPanel
+                loads={mockLoads}
+                drivers={mockDrivers}
+                compact={false}
+            />,
+        );
+
+        // The create form should be visible with driver selection heading
+        expect(screen.getByText(/Select Drivers/)).toBeInTheDocument();
+    });
+
+    it("renders driver chips from different hubs in the create form", () => {
+        render(
+            <DispatchBlastPanel
+                loads={mockLoads}
+                drivers={mockDrivers}
+                selectedLoadId="load-1"
+                compact={false}
+            />,
+        );
+
+        // Both active drivers should appear (different hubs)
+        expect(screen.getByText("Alice Smith")).toBeInTheDocument();
+        expect(screen.getByText("Bob Jones")).toBeInTheDocument();
+    });
 });

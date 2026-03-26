@@ -15,4 +15,12 @@ vi.mock("recharts", () => ({ ResponsiveContainer: ({ children }: any) => <div>{c
 import CommandCenter from "./CommandCenter";
 describe("CommandCenter", () => {
   it("renders without crashing", async () => { render(<CommandCenter />); await waitFor(() => expect(document.body).toBeDefined()); });
+  it("renders a non-empty page after loading", async () => {
+    const { container } = render(<CommandCenter />);
+    await waitFor(() => expect(container.innerHTML.length).toBeGreaterThan(100));
+  });
+  it("renders without error when alerts are empty", async () => {
+    const { container } = render(<CommandCenter />);
+    await waitFor(() => expect(container.innerHTML.length).toBeGreaterThan(0));
+  });
 });

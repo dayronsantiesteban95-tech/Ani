@@ -232,4 +232,216 @@ describe("useDispatchBlast", () => {
             expect.objectContaining({ title: expect.stringContaining("Interest sent") })
         );
     });
+
+    it("createBlast inserts blast and response rows then toasts on success", async () => {
+        const createdBlast = makeBlast({ id: "new-blast" });
+        const mockSingle = vi.fn().mockResolvedValue({ data: createdBlast, error: null });
+        const mockInsertBlast = vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({ single: mockSingle }),
+        });
+        const mockInsertResponses = vi.fn().mockResolvedValue({ error: null });
+        const mockUpdateLoad = vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ error: null }),
+        });
+
+        let fromCallIndex = 0;
+        (supabase.from as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
+            if (table === "dispatch_blasts") {
+                fromCallIndex++;
+                if (fromCallIndex <= 1) {
+                    // fetchBlasts call
+                    return {
+                        select: vi.fn().mockReturnThis(),
+                        or: vi.fn().mockReturnThis(),
+                        order: vi.fn().mockReturnThis(),
+                        limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+                    };
+                }
+                // createBlast insert
+                return { insert: mockInsertBlast };
+            }
+            if (table === "blast_responses") {
+                fromCallIndex++;
+                if (fromCallIndex <= 2) {
+                    return {
+                        select: vi.fn().mockReturnThis(),
+                        in: vi.fn().mockReturnThis(),
+                        order: vi.fn().mockResolvedValue({ data: [], error: null }),
+                    };
+                }
+                return { insert: mockInsertResponses };
+            }
+            if (table === "daily_loads") {
+                return { update: mockUpdateLoad };
+            }
+            return {};
+        });
+        (supabase.channel as ReturnType<typeof vi.fn>).mockImplementation(buildChannelMock());
+
+        const { result } = renderHook(() => useDispatchBlast());
+        await waitFor(() => expect(result.current.loading).toBe(false));
+
+        const blast = await result.current.createBlast({
+            loadId: "load-1",
+            hub: "HUB_A",
+            driverIds: ["driver-1", "driver-2"],
+            message: "Urgent load",
+            priority: "high",
+        });
+
+        expect(blast).not.toBeNull();
+        expect(blast?.id).toBe("new-blast");
+        expect(mockToast).toHaveBeenCalledWith(
+            expect.objectContaining({ title: expect.stringContaining("Blast Sent") })
+        );
+    });
+
+    it("createBlast toasts error when blast insert fails", async () => {
+        const mockSingle = vi.fn().mockResolvedValue({
+            data: null,
+            error: { message: "Insert failed" },
+        });
+
+        let fromCallIndex = 0;
+        (supabase.from as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
+            if (table === "dispatch_blasts") {
+                fromCallIndex++;
+                if (fromCallIndex <= 1) {
+                    return {
+                        select: vi.fn().mockReturnThis(),
+                        or: vi.fn().mockReturnThis(),
+                        order: vi.fn().mockReturnThis(),
+                        limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+                    };
+                }
+                return {
+                    insert: vi.fn().mockReturnValue({
+                        select: vi.fn().mockReturnValue({ single: mockSingle }),
+                    }),
+                };
+            }
+            if (table === "blast_responses") {
+                return {
+                    select: vi.fn().mockReturnThis(),
+                    in: vi.fn().mockReturnThis(),
+                    order: vi.fn().mockResolvedValue({ data: [], error: null }),
+                };
+            }
+            return {};
+        });
+        (supabase.channel as ReturnType<typeof vi.fn>).mockImplementation(buildChannelMock());
+
+        const { result } = renderHook(() => useDispatchBlast());
+        await waitFor(() => expect(result.current.loading).toBe(false));
+
+        const blast = await result.current.createBlast({
+            loadId: "load-1",
+            hub: "HUB_A",
+            driverIds: ["driver-1"],
+        });
+
+        expect(blast).toBeNull();
+        expect(mockToast).toHaveBeenCalledWith(
+            expect.objectContaining({ variant: "destructive" })
+        );
+    });
+
+    it("confirmAssignment returns true on success and toasts", async () => {
+        (supabase.from as ReturnType<typeof vi.fn>).mockImplementation(buildFromMock([], []));
+        (supabase.channel as ReturnType<typeof vi.fn>).mockImplementation(buildChannelMock());
+        (supabase.rpc as ReturnType<typeof vi.fn>).mockResolvedValue({
+            data: { success: true, load_id: "load-1" },
+            error: null,
+        });
+
+        const { result } = renderHook(() => useDispatchBlast());
+        await waitFor(() => expect(result.current.loading).toBe(false));
+
+        const success = await result.current.confirmAssignment("blast-1", "driver-1");
+        expect(success).toBe(true);
+        expect(mockToast).toHaveBeenCalledWith(
+            expect.objectContaining({ title: expect.stringContaining("Driver Assigned") })
+        );
+    });
+
+    it("confirmAssignment returns false on rpc error and toasts destructive", async () => {
+        (supabase.from as ReturnType<typeof vi.fn>).mockImplementation(buildFromMock([], []));
+        (supabase.channel as ReturnType<typeof vi.fn>).mockImplementation(buildChannelMock());
+        (supabase.rpc as ReturnType<typeof vi.fn>).mockResolvedValue({
+            data: null,
+            error: { message: "RPC failed" },
+        });
+
+        const { result } = renderHook(() => useDispatchBlast());
+        await waitFor(() => expect(result.current.loading).toBe(false));
+
+        const success = await result.current.confirmAssignment("blast-1", "driver-1");
+        expect(success).toBe(false);
+        expect(mockToast).toHaveBeenCalledWith(
+            expect.objectContaining({ variant: "destructive" })
+        );
+    });
+
+    it("declineBlast updates response status and calls rpc to increment stat", async () => {
+        const blast = makeBlast({ id: "blast-1", drivers_declined: 0 });
+        const makeEqChain = (resolveWith: { error: unknown }) => {
+            const firstEq = vi.fn();
+            const secondEq = vi.fn().mockResolvedValue(resolveWith);
+            firstEq.mockReturnValue({ eq: secondEq });
+            return firstEq;
+        };
+
+        let blastResponseCallIndex = 0;
+        (supabase.from as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
+            if (table === "dispatch_blasts") {
+                return {
+                    select: vi.fn().mockReturnThis(),
+                    or: vi.fn().mockReturnThis(),
+                    order: vi.fn().mockReturnThis(),
+                    limit: vi.fn().mockResolvedValue({ data: [blast], error: null }),
+                    update: vi.fn().mockReturnThis(),
+                    eq: vi.fn().mockResolvedValue({ error: null }),
+                };
+            }
+            if (table === "blast_responses") {
+                blastResponseCallIndex++;
+                if (blastResponseCallIndex <= 1) {
+                    return {
+                        select: vi.fn().mockReturnThis(),
+                        in: vi.fn().mockReturnThis(),
+                        order: vi.fn().mockResolvedValue({ data: [], error: null }),
+                    };
+                }
+                return { update: vi.fn().mockReturnValue({ eq: makeEqChain({ error: null }) }) };
+            }
+            return {};
+        });
+        (supabase.channel as ReturnType<typeof vi.fn>).mockImplementation(buildChannelMock());
+        (supabase.rpc as ReturnType<typeof vi.fn>).mockResolvedValue({ data: null, error: null });
+
+        const { result } = renderHook(() => useDispatchBlast());
+        await waitFor(() => expect(result.current.loading).toBe(false));
+
+        await result.current.declineBlast("blast-1", "driver-1", "Too far");
+
+        expect(supabase.rpc).toHaveBeenCalledWith("increment_blast_stat", {
+            p_blast_id: "blast-1",
+            p_field: "drivers_declined",
+        });
+    });
+
+    it("analytics avgResponseTimeSec is 0 when there are no interested responses", async () => {
+        const blast = makeBlast({ id: "b1", status: "active", drivers_notified: 2 });
+        const declinedResponse = makeResponse({ status: "declined", response_time_ms: null });
+
+        (supabase.from as ReturnType<typeof vi.fn>).mockImplementation(
+            buildFromMock([blast], [declinedResponse])
+        );
+        (supabase.channel as ReturnType<typeof vi.fn>).mockImplementation(buildChannelMock());
+
+        const { result } = renderHook(() => useDispatchBlast());
+        await waitFor(() => expect(result.current.loading).toBe(false));
+
+        expect(result.current.analytics.avgResponseTimeSec).toBe(0);
+    });
 });

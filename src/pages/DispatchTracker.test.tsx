@@ -83,4 +83,18 @@ describe("DispatchTracker", () => {
     render(<DispatchTracker />);
     expect(await screen.findByText("New Load")).toBeInTheDocument();
   });
+
+  it("renders all four tab triggers", async () => {
+    render(<DispatchTracker />);
+    expect(await screen.findByRole("tab", { name: /Load Board/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Live Ops/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Wait Time/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Daily Report/i })).toBeInTheDocument();
+  });
+
+  it("renders the page container with content", async () => {
+    const { container } = render(<DispatchTracker />);
+    await screen.findByText("Dispatch Tracker");
+    expect(container.innerHTML.length).toBeGreaterThan(200);
+  });
 });

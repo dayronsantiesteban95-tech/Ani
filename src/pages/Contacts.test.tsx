@@ -70,4 +70,16 @@ describe("Contacts", () => {
     const input = await screen.findByPlaceholderText("Search contacts...", {}, { timeout: 3000 });
     expect(input).toBeInTheDocument();
   });
+
+  it("renders the subtitle description", async () => {
+    render(<Contacts />);
+    const subtitle = await screen.findByText(/Manage your contact/i, {}, { timeout: 3000 });
+    expect(subtitle).toBeInTheDocument();
+  });
+
+  it("renders empty state when no contacts loaded", async () => {
+    render(<Contacts />);
+    const emptyText = await screen.findByText(/no contacts/i, {}, { timeout: 3000 });
+    expect(emptyText).toBeInTheDocument();
+  });
 });

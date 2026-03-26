@@ -144,4 +144,68 @@ describe("useNotifications", () => {
 
         expect(typeof result.current.deleteNotification).toBe("function");
     });
+
+    it("deleteNotification calls supabase delete for the given id", async () => {
+        const notifications = [
+            makeNotification({ id: "n1", is_read: false }),
+            makeNotification({ id: "n2", is_read: true }),
+        ];
+        const qb = makeFetchBuilder(notifications);
+        vi.mocked(supabase.from).mockReturnValue(qb as never);
+
+        const { result } = renderHook(() => useNotifications());
+        await waitFor(() => expect(result.current.notifications).toHaveLength(2));
+
+        // Fire and forget - don't await since the mutation chain resolves internally
+        result.current.deleteNotification("n1");
+
+        await waitFor(() => {
+            expect(qb.delete).toHaveBeenCalled();
+        });
+    });
+
+    it("clearAll calls supabase delete for the user", async () => {
+        const notifications = [
+            makeNotification({ id: "n1", is_read: false }),
+        ];
+        const qb = makeFetchBuilder(notifications);
+        vi.mocked(supabase.from).mockReturnValue(qb as never);
+
+        const { result } = renderHook(() => useNotifications());
+        await waitFor(() => expect(result.current.loading).toBe(false));
+
+        result.current.clearAll();
+
+        await waitFor(() => {
+            expect(qb.delete).toHaveBeenCalled();
+        });
+    });
+
+    it("markAsRead calls update for the given notification id", async () => {
+        const notifications = [
+            makeNotification({ id: "n1", is_read: false }),
+            makeNotification({ id: "n2", is_read: false }),
+        ];
+        const qb = makeFetchBuilder(notifications);
+        vi.mocked(supabase.from).mockReturnValue(qb as never);
+
+        const { result } = renderHook(() => useNotifications());
+        await waitFor(() => expect(result.current.unreadCount).toBe(2));
+
+        result.current.markAsRead("n1");
+
+        await waitFor(() => {
+            expect(qb.update).toHaveBeenCalledWith({ is_read: true });
+        });
+    });
+
+    it("refetch function is exposed by the hook", async () => {
+        const qb = makeFetchBuilder([]);
+        vi.mocked(supabase.from).mockReturnValue(qb as never);
+
+        const { result } = renderHook(() => useNotifications());
+        await waitFor(() => expect(result.current.loading).toBe(false));
+
+        expect(typeof result.current.refetch).toBe("function");
+    });
 });

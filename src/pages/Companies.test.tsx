@@ -70,4 +70,16 @@ describe("Companies", () => {
     const input = await screen.findByPlaceholderText("Search companies...", {}, { timeout: 3000 });
     expect(input).toBeInTheDocument();
   });
+
+  it("renders the subtitle description", async () => {
+    render(<Companies />);
+    const subtitle = await screen.findByText(/Manage your company database/i, {}, { timeout: 3000 });
+    expect(subtitle).toBeInTheDocument();
+  });
+
+  it("renders the table with no companies found", async () => {
+    render(<Companies />);
+    const emptyText = await screen.findByText(/No companies found/i, {}, { timeout: 3000 });
+    expect(emptyText).toBeInTheDocument();
+  });
 });

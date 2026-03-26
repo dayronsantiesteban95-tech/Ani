@@ -172,4 +172,65 @@ describe("geocodeAddress", () => {
         const result = await geocodeAddress("anything");
         expect(result).toBeNull();
     });
+
+    it("returns null when json() throws", async () => {
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+            json: () => Promise.reject(new Error("bad json")),
+        }));
+
+        const result = await geocodeAddress("test");
+        expect(result).toBeNull();
+    });
+
+    it("encodes special characters in the address", async () => {
+        const mockFetch = vi.fn().mockResolvedValue({
+            json: () => Promise.resolve([{ lat: "34.0522", lon: "-118.2437" }]),
+        });
+        vi.stubGlobal("fetch", mockFetch);
+
+        await geocodeAddress("123 Main St #4, LA CA");
+        const calledUrl = mockFetch.mock.calls[0][0] as string;
+        expect(calledUrl).toContain("123%20Main%20St%20%234");
+    });
+});
+
+describe("optimizeRoute additional cases", () => {
+    it("respects custom startIndex to begin route from a different point", () => {
+        const points = [
+            makePoint("A", 34.05, -118.25),
+            makePoint("B", 34.10, -118.30),
+            makePoint("C", 34.00, -118.20),
+        ];
+        const result = optimizeRoute(points, { startIndex: 2 });
+        // First stop should be point C (index 2)
+        expect(result.stops[0].id).toBe("C");
+        expect(result.stops[0].order).toBe(1);
+        expect(result.stops[0].distanceFromPrev).toBe(0);
+    });
+
+    it("respects custom avgSpeedMph affecting total duration", () => {
+        const points = [
+            makePoint("A", 34.05, -118.25),
+            makePoint("B", 34.15, -118.35), // ~8 miles apart
+        ];
+        const slow = optimizeRoute(points, { avgSpeedMph: 15 });
+        const fast = optimizeRoute(points, { avgSpeedMph: 60 });
+        // Slower speed => longer duration
+        expect(slow.totalDurationMinutes).toBeGreaterThan(fast.totalDurationMinutes);
+    });
+
+    it("ETA advances correctly through multiple stops", () => {
+        const points = [
+            makePoint("A", 34.05, -118.25),
+            makePoint("B", 34.06, -118.26),
+            makePoint("C", 34.07, -118.27),
+        ];
+        const result = optimizeRoute(points, { startTime: "10:00", minutesPerStop: 5 });
+        const sorted = [...result.stops].sort((a, b) => a.order - b.order);
+        // First stop at 10:00
+        expect(sorted[0].estimatedArrival).toBe("10:00");
+        // Subsequent stops should be after 10:00
+        expect(sorted[1].estimatedArrival > "10:00").toBe(true);
+        expect(sorted[2].estimatedArrival > sorted[1].estimatedArrival).toBe(true);
+    });
 });

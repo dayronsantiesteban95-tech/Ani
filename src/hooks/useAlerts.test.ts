@@ -139,4 +139,90 @@ describe("useAlerts", () => {
         expect(qb.update).not.toHaveBeenCalled();
         expect(result.current.alerts).toHaveLength(0);
     });
+
+    it("resolveAlert calls supabase update with status=resolved", async () => {
+        const qb = makeQueryBuilder([makeAlert()]);
+        const updateBuilder = {
+            eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+        };
+        qb.update = vi.fn().mockReturnValue(updateBuilder);
+        vi.mocked(supabase.from).mockReturnValue(qb as never);
+
+        const { result } = renderHook(() => useAlerts());
+        await waitFor(() => expect(result.current.loading).toBe(false));
+
+        result.current.resolveAlert("alert-1");
+
+        await waitFor(() => {
+            expect(qb.update).toHaveBeenCalledWith(
+                expect.objectContaining({ status: "resolved" })
+            );
+        });
+    });
+
+    it("dismissAll updates all alert ids and clears local state on success", async () => {
+        const alerts = [makeAlert({ id: "a1" }), makeAlert({ id: "a2" })];
+        const qb = makeQueryBuilder(alerts);
+        const inMock = vi.fn().mockResolvedValue({ data: null, error: null });
+        qb.update = vi.fn().mockReturnValue({ in: inMock });
+        vi.mocked(supabase.from).mockReturnValue(qb as never);
+
+        const { result } = renderHook(() => useAlerts());
+        await waitFor(() => expect(result.current.alerts).toHaveLength(2));
+
+        await result.current.dismissAll();
+
+        await waitFor(() => {
+            expect(qb.update).toHaveBeenCalledWith(
+                expect.objectContaining({ status: "acknowledged" })
+            );
+        });
+    });
+
+    it("escalation returns info for alerts less than 5 minutes old", async () => {
+        const now = Date.now();
+        const freshAlert = makeAlert({
+            id: "fresh",
+            created_at: new Date(now - 2 * 60_000).toISOString(),
+        });
+        const qb = makeQueryBuilder([freshAlert]);
+        vi.mocked(supabase.from).mockReturnValue(qb as never);
+
+        const { result } = renderHook(() => useAlerts());
+        await waitFor(() => expect(result.current.alerts).toHaveLength(1));
+
+        expect(result.current.alerts[0].escalatedSeverity).toBe("info");
+    });
+
+    it("escalation returns auto_ping for alerts 30+ minutes old", async () => {
+        const now = Date.now();
+        const oldAlert = makeAlert({
+            id: "old",
+            created_at: new Date(now - 35 * 60_000).toISOString(),
+        });
+        const qb = makeQueryBuilder([oldAlert]);
+        vi.mocked(supabase.from).mockReturnValue(qb as never);
+
+        const { result } = renderHook(() => useAlerts());
+        await waitFor(() => expect(result.current.alerts).toHaveLength(1));
+
+        expect(result.current.alerts[0].escalatedSeverity).toBe("auto_ping");
+    });
+
+    it("non-active alerts retain their original severity without escalation", async () => {
+        const resolvedAlert = makeAlert({
+            id: "resolved-1",
+            status: "resolved" as const,
+            severity: "info" as const,
+            created_at: new Date(Date.now() - 60 * 60_000).toISOString(),
+        });
+        const qb = makeQueryBuilder([resolvedAlert]);
+        vi.mocked(supabase.from).mockReturnValue(qb as never);
+
+        const { result } = renderHook(() => useAlerts());
+        await waitFor(() => expect(result.current.alerts).toHaveLength(1));
+
+        // Even though 60 min old, non-active => keeps original severity
+        expect(result.current.alerts[0].escalatedSeverity).toBe("info");
+    });
 });

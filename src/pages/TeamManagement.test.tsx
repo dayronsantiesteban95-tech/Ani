@@ -11,4 +11,12 @@ vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), err
 import TeamManagement from "./TeamManagement";
 describe("TeamManagement", () => {
   it("renders heading", async () => { render(<TeamManagement />); await waitFor(() => { expect(screen.getByText(/Team Management/i)).toBeInTheDocument(); }); });
+  it("renders the Invite User button", async () => {
+    render(<TeamManagement />);
+    expect(await screen.findByRole("button", { name: /Invite User/i })).toBeInTheDocument();
+  });
+  it("renders loading state then team members section", async () => {
+    const { container } = render(<TeamManagement />);
+    await waitFor(() => { expect(container.innerHTML).toContain("Team Management"); });
+  });
 });

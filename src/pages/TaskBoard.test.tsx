@@ -74,4 +74,41 @@ describe("TaskBoard", () => {
     const input = await screen.findByPlaceholderText("Search tasks...", {}, { timeout: 3000 });
     expect(input).toBeInTheDocument();
   });
+
+  it("renders all three column headers: To Do, In Progress, Done", async () => {
+    render(<TaskBoard />);
+    const columns = ["To Do", "In Progress", "Done"];
+    for (const col of columns) {
+      const el = await screen.findByText(col, {}, { timeout: 3000 });
+      expect(el).toBeInTheDocument();
+    }
+  });
+
+  it("renders the All department filter button", async () => {
+    render(<TaskBoard />);
+    const allBtn = await screen.findByRole("button", { name: "All" }, { timeout: 3000 });
+    expect(allBtn).toBeInTheDocument();
+  });
+
+  it("renders department filter buttons", async () => {
+    render(<TaskBoard />);
+    const departments = ["Onboarding", "Marketing/Growth", "Operations", "Fleet/Courier Mgt", "Finance"];
+    for (const dept of departments) {
+      const el = await screen.findByRole("button", { name: dept }, { timeout: 3000 });
+      expect(el).toBeInTheDocument();
+    }
+  });
+
+  it("renders the owner subtitle when isOwner is true", async () => {
+    render(<TaskBoard />);
+    const subtitle = await screen.findByText("All team tasks", {}, { timeout: 3000 });
+    expect(subtitle).toBeInTheDocument();
+  });
+
+  it("shows empty state message in columns when there are no tasks", async () => {
+    render(<TaskBoard />);
+    const emptyMessages = await screen.findAllByText("No tasks here yet", {}, { timeout: 3000 });
+    // Should show in all 3 columns
+    expect(emptyMessages.length).toBe(3);
+  });
 });

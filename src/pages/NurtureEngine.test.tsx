@@ -53,4 +53,16 @@ describe("NurtureEngine", () => {
     render(<NurtureEngine />);
     expect(await screen.findByText(/Automated outreach sequences/)).toBeInTheDocument();
   });
+
+  it("renders the container element", async () => {
+    const { container } = render(<NurtureEngine />);
+    await screen.findByText("Anika Outreach Engine");
+    expect(container.innerHTML.length).toBeGreaterThan(100);
+  });
+
+  it("renders the page with expected structure", async () => {
+    const { container } = render(<NurtureEngine />);
+    await screen.findByText("Anika Outreach Engine");
+    expect(container.querySelector(".space-y-4, .space-y-6")).toBeTruthy();
+  });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtMoney, fmtWait, todayISO } from "@/lib/formatters";
@@ -15,7 +15,7 @@ import {
 import { LEAD_STAGES, TASK_PRIORITIES, TASK_STATUSES, DEPARTMENTS } from "@/lib/constants";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import type { Tables } from "@/integrations/supabase/types";
-import AiChatbot from "@/components/AiChatbot";
+const AiChatbot = lazy(() => import("@/components/AiChatbot"));
 
 const STAGE_COLORS = ["hsl(30,100%,50%)", "hsl(200,80%,50%)", "hsl(260,60%,55%)", "hsl(340,70%,50%)", "hsl(140,60%,45%)"];
 const STATUS_COLORS = ["hsl(200,80%,50%)", "hsl(40,90%,50%)", "hsl(140,60%,45%)"];
@@ -400,7 +400,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
-      <AiChatbot />
+      <Suspense fallback={null}><AiChatbot /></Suspense>
     </div>
   );
 }
