@@ -29,11 +29,17 @@ interface Load {
     reference_number: string | null;
     client_name: string | null;
     driver_id: string | null;
+    dispatcher_id: string | null;
+    vehicle_id: string | null;
     pickup_address: string | null;
     delivery_address: string | null;
     miles: number;
+    deadhead_miles: number;
     revenue: number;
+    driver_pay: number;
+    fuel_cost: number;
     packages: number;
+    weight_lbs: number | null;
     status: string;
     hub: string;
     service_type: string;
@@ -42,6 +48,10 @@ interface Load {
     wait_time_minutes: number;
     load_date: string;
     shift: string;
+    detention_eligible: boolean;
+    detention_billed: number;
+    comments: string | null;
+    pod_confirmed: boolean;
     created_at: string;
 }
 
@@ -412,8 +422,16 @@ export default function CommandCenter() {
             supabase.from("daily_loads").select("*").eq("load_date", today).order("created_at", { ascending: false }),
             supabase.from("drivers").select("*").order("full_name"),
         ]);
-        if (loadsRes.data) setLoads(loadsRes.data);
-        if (driversRes.data) setDrivers(driversRes.data);
+        if (loadsRes.error) {
+            console.error("Failed to fetch loads:", loadsRes.error.message);
+        } else {
+            setLoads(loadsRes.data as Load[]);
+        }
+        if (driversRes.error) {
+            console.error("Failed to fetch drivers:", driversRes.error.message);
+        } else {
+            setDrivers(driversRes.data as Driver[]);
+        }
         setLoading(false);
     }, [today]);
 
@@ -785,7 +803,7 @@ export default function CommandCenter() {
             {/* ────── LOAD DETAIL PANEL (from alert click) ────── */}
             {selectedLoad && (
                 <LoadDetailPanel
-                    load={selectedLoad as unknown as LoadDetail}
+                    load={selectedLoad}
                     driverName={driverName(selectedLoad.driver_id)}
                     vehicleName="—"
                     dispatcherName="—"

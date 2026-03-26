@@ -26,7 +26,7 @@ function buildQueryChain(resolvedData: { data: unknown }) {
     eq: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockResolvedValue(resolvedData),
   };
-  mockFrom.mockReturnValue(chain as unknown as ReturnType<typeof supabase.from>);
+  mockFrom.mockReturnValue(chain as ReturnType<typeof supabase.from>);
   return chain;
 }
 
