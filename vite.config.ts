@@ -17,12 +17,47 @@ export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          "vendor-react": ["react", "react-dom", "react-router-dom"],
-          "vendor-ui": ["@radix-ui/react-dialog", "@radix-ui/react-tabs", "@radix-ui/react-select", "@radix-ui/react-popover", "@radix-ui/react-slot"],
-          "vendor-charts": ["recharts"],
-          "vendor-supabase": ["@supabase/supabase-js"],
-          "vendor-utils": ["date-fns", "clsx", "tailwind-merge"],
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (
+              id.includes("/react/") ||
+              id.includes("/react-dom/") ||
+              id.includes("/react-router-dom/") ||
+              id.includes("/scheduler/")
+            ) {
+              return "vendor-react";
+            }
+            if (id.includes("/@tanstack/")) {
+              return "vendor-query";
+            }
+            if (id.includes("/@radix-ui/")) {
+              return "vendor-ui";
+            }
+            if (id.includes("/recharts/") || id.includes("/d3-")) {
+              return "vendor-charts";
+            }
+            if (
+              id.includes("/@supabase/") ||
+              id.includes("/postgrest-js/") ||
+              id.includes("/realtime-js/") ||
+              id.includes("/storage-js/") ||
+              id.includes("/gotrue-js/")
+            ) {
+              return "vendor-supabase";
+            }
+            if (
+              id.includes("/date-fns/") ||
+              id.includes("/clsx/") ||
+              id.includes("/tailwind-merge/") ||
+              id.includes("/class-variance-authority/")
+            ) {
+              return "vendor-utils";
+            }
+            if (id.includes("/lucide-react/")) {
+              return "vendor-icons";
+            }
+            return "vendor-misc";
+          }
         },
       },
     },
