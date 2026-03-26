@@ -78,10 +78,6 @@ export default function AutoDispatchPanel({
     const [loading, setLoading] = useState(true);
     const [assigning, setAssigning] = useState<string | null>(null);
 
-    useEffect(() => {
-        fetchCandidates();
-    }, [loadId, fetchCandidates]);
-
     const fetchCandidates = useCallback(async () => {
         setLoading(true);
 
@@ -161,6 +157,10 @@ export default function AutoDispatchPanel({
         setCandidates(scored.slice(0, 8)); // Show top 8
         setLoading(false);
     }, [loadHub, loadPickupLat, loadPickupLng]);
+
+    useEffect(() => {
+        fetchCandidates();
+    }, [loadId, fetchCandidates]);
 
     const assignDriver = async (driverId: string) => {
         setAssigning(driverId);
