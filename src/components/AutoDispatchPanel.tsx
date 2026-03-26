@@ -13,7 +13,6 @@
  */
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -87,13 +86,12 @@ export default function AutoDispatchPanel({
         setLoading(true);
 
         // 1. Get all active drivers (prefer same hub)
-        const { data: driversData } = await supabase
+        const { data: drivers, error: driversError } = await supabase
             .from("drivers")
             .select("id, full_name, hub, status")
             .eq("status", "active");
-        const drivers = driversData as Driver[] | null;
 
-        if (!drivers || drivers.length === 0) {
+        if (driversError || !drivers || drivers.length === 0) {
             setCandidates([]);
             setLoading(false);
             return;
@@ -101,12 +99,11 @@ export default function AutoDispatchPanel({
 
         // 2. Get today's load counts per driver
         const today = new Date().toISOString().split("T")[0];
-        const { data: loadCountsData } = await supabase
+        const { data: loadCounts } = await supabase
             .from("daily_loads")
             .select("driver_id")
             .eq("load_date", today)
             .neq("status", "cancelled");
-        const loadCounts = loadCountsData as { driver_id: string }[] | null;
 
         const countMap = new Map<string, number>();
         for (const lc of loadCounts ?? []) {
@@ -116,9 +113,7 @@ export default function AutoDispatchPanel({
         // 3. Get latest GPS positions — graceful fallback if RPC doesn't exist
         const posMap = new Map<string, { lat: number; lng: number }>();
         try {
-            const { data: positionsData } = await (supabase as unknown as SupabaseClient)
-                .rpc("get_driver_positions");
-            const positions = positionsData as DriverPosition[] | null;
+            const { data: positions } = await supabase.rpc("get_driver_positions");
 
             for (const pos of positions ?? []) {
                 posMap.set(pos.driver_id, { lat: pos.latitude, lng: pos.longitude });

@@ -177,7 +177,7 @@ export default function CSVImportPanel({ onImportComplete, loadDate, hub }: CSVI
         const payloads: DailyLoadInsert[] = [];
 
         for (const row of csvRows) {
-            const payload: Record<string, string | number | null> = {
+            const payload: DailyLoadInsert = {
                 load_date: today,
                 hub: hub ?? "phoenix",
                 status: "pending",
@@ -190,13 +190,13 @@ export default function CSVImportPanel({ onImportComplete, loadDate, hub }: CSVI
                 if (value !== undefined && value !== "") {
                     if (["packages", "miles", "revenue", "weight_lbs", "deadhead_miles", "driver_pay", "fuel_cost", "wait_time_minutes"].includes(dbCol)) {
                         const parsed = Number(value);
-                        payload[dbCol] = Number.isFinite(parsed) ? parsed : 0;
+                        Object.assign(payload, { [dbCol]: Number.isFinite(parsed) ? parsed : 0 });
                     } else {
-                        payload[dbCol] = value;
+                        Object.assign(payload, { [dbCol]: value });
                     }
                 }
             }
-            payloads.push(payload as unknown as DailyLoadInsert);
+            payloads.push(payload);
         }
 
         // Batch insert in chunks of 50 for performance
