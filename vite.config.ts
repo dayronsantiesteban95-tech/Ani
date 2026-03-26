@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
+    target: "es2022",
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -55,6 +56,39 @@ export default defineConfig(({ mode }) => ({
             }
             if (id.includes("/lucide-react/")) {
               return "vendor-icons";
+            }
+            // Heavy page-specific deps: let them code-split naturally
+            // with the lazy-loaded pages that import them, instead of
+            // forcing everything into one giant vendor-misc chunk.
+            if (
+              id.includes("/react-markdown/") ||
+              id.includes("/remark-") ||
+              id.includes("/rehype-") ||
+              id.includes("/unified/") ||
+              id.includes("/micromark") ||
+              id.includes("/mdast-") ||
+              id.includes("/hast-") ||
+              id.includes("/unist-") ||
+              id.includes("/vfile") ||
+              id.includes("/devlop/") ||
+              id.includes("/ccount/") ||
+              id.includes("/comma-separated-tokens/") ||
+              id.includes("/property-information/") ||
+              id.includes("/space-separated-tokens/") ||
+              id.includes("/stringify-entities/") ||
+              id.includes("/character-entities") ||
+              id.includes("/html-void-elements/") ||
+              id.includes("/longest-streak/") ||
+              id.includes("/markdown-table/") ||
+              id.includes("/zwitch/") ||
+              id.includes("/is-plain-obj/") ||
+              id.includes("/bail/") ||
+              id.includes("/trough/") ||
+              id.includes("/decode-named-character-reference/") ||
+              id.includes("/estree-") ||
+              id.includes("/react-day-picker/")
+            ) {
+              return;  // natural code-split with importing page
             }
             return "vendor-misc";
           }
