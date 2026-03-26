@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtMoney, fmtWait, todayISO } from "@/lib/formatters";
@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatCardsSkeleton, ChartSkeleton } from "@/components/PageSkeleton";
 import {
   TrendingUp, CheckSquare, AlertTriangle, Users, Building2, UserCheck,
   CalendarClock, BarChart3, Truck, Clock, DollarSign, ClipboardList, ArrowRight,
@@ -15,7 +16,8 @@ import {
 import { LEAD_STAGES, TASK_PRIORITIES, TASK_STATUSES, DEPARTMENTS } from "@/lib/constants";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import type { Tables } from "@/integrations/supabase/types";
-import AiChatbot from "@/components/AiChatbot";
+import { SectionErrorBoundary } from "@/components/SectionErrorBoundary";
+const AiChatbot = lazy(() => import("@/components/AiChatbot"));
 
 const STAGE_COLORS = ["hsl(30,100%,50%)", "hsl(200,80%,50%)", "hsl(260,60%,55%)", "hsl(340,70%,50%)", "hsl(140,60%,45%)"];
 const STATUS_COLORS = ["hsl(200,80%,50%)", "hsl(40,90%,50%)", "hsl(140,60%,45%)"];
@@ -33,19 +35,15 @@ const deptLabel = (dept: string | null) => {
 
 function DashboardSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in">
       <div>
         <Skeleton className="h-8 w-40" />
         <Skeleton className="h-4 w-56 mt-2" />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-28 rounded-2xl" />
-        ))}
-      </div>
+      <StatCardsSkeleton count={6} />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Skeleton className="h-72 rounded-2xl" />
-        <Skeleton className="h-72 rounded-2xl" />
+        <ChartSkeleton />
+        <ChartSkeleton />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Skeleton className="h-64 rounded-2xl lg:col-span-2" />
@@ -65,7 +63,7 @@ export default function Dashboard() {
   const [recentActivity, setRecentActivity] = useState<{ id: string; note: string; activity_type: string; created_at: string }[]>([]);
   const [upcomingTasks, setUpcomingTasks] = useState<Tables<"tasks">[]>([]);
   const [taskStatusCounts, setTaskStatusCounts] = useState<{ name: string; value: number }[]>([]);
-  const [todayLoads, setTodayLoads] = useState<any[]>([]);
+  const [todayLoads, setTodayLoads] = useState<Tables<"daily_loads">[]>([]);
   const [drivers, setDrivers] = useState<{ id: string; full_name: string }[]>([]);
 
   useEffect(() => {
@@ -85,6 +83,12 @@ export default function Dashboard() {
         supabase.from("companies").select("id", { count: "exact", head: true }),
         supabase.from("contacts").select("id", { count: "exact", head: true }),
       ]);
+      if (leadsRes.error) console.error("Failed to fetch leads count:", leadsRes.error.message);
+      if (tasksTodayRes.error) console.error("Failed to fetch tasks due today:", tasksTodayRes.error.message);
+      if (overdueRes.error) console.error("Failed to fetch overdue leads:", overdueRes.error.message);
+      if (wonRes.error) console.error("Failed to fetch won accounts:", wonRes.error.message);
+      if (companiesRes.error) console.error("Failed to fetch companies count:", companiesRes.error.message);
+      if (contactsRes.error) console.error("Failed to fetch contacts count:", contactsRes.error.message);
       setStats({
         leads: leadsRes.count ?? 0,
         tasksDueToday: tasksTodayRes.count ?? 0,
@@ -94,7 +98,8 @@ export default function Dashboard() {
         contacts: contactsRes.count ?? 0,
       });
 
-      const { data: allLeads } = await supabase.from("leads").select("stage");
+      const { data: allLeads, error: allLeadsError } = await supabase.from("leads").select("stage");
+      if (allLeadsError) { console.error("Failed to fetch lead stages:", allLeadsError.message); }
       const counts: Record<string, number> = {};
       LEAD_STAGES.forEach((s) => (counts[s.value] = 0));
       allLeads?.forEach((l) => { counts[l.stage] = (counts[l.stage] || 0) + 1; });
@@ -106,7 +111,8 @@ export default function Dashboard() {
         .order("created_at", { ascending: false })
         .limit(8);
       if (!isOwner) activityQuery = activityQuery.eq("created_by", userId);
-      const { data: activity } = await activityQuery;
+      const { data: activity, error: activityError } = await activityQuery;
+      if (activityError) { console.error("Failed to fetch recent activity:", activityError.message); }
       if (activity) setRecentActivity(activity);
 
       let tasksQuery = supabase
@@ -117,12 +123,14 @@ export default function Dashboard() {
         .order("due_date", { ascending: true })
         .limit(5);
       if (!isOwner) tasksQuery = tasksQuery.eq("assigned_to", userId);
-      const { data: tasks } = await tasksQuery;
+      const { data: tasks, error: tasksError } = await tasksQuery;
+      if (tasksError) { console.error("Failed to fetch upcoming tasks:", tasksError.message); }
       if (tasks) setUpcomingTasks(tasks);
 
       let allTasksQuery = supabase.from("tasks").select("status");
       if (!isOwner) allTasksQuery = allTasksQuery.eq("assigned_to", userId);
-      const { data: allTasks } = await allTasksQuery;
+      const { data: allTasks, error: allTasksError } = await allTasksQuery;
+      if (allTasksError) { console.error("Failed to fetch task statuses:", allTasksError.message); }
       const statusCounts: Record<string, number> = {};
       TASK_STATUSES.forEach((s) => (statusCounts[s.value] = 0));
       allTasks?.forEach((t) => { statusCounts[t.status] = (statusCounts[t.status] || 0) + 1; });
@@ -134,6 +142,8 @@ export default function Dashboard() {
         db.from("daily_loads").select("*").eq("load_date", today),
         db.from("drivers").select("id, full_name"),
       ]);
+      if (loadsRes.error) console.error("Failed to fetch today's loads:", loadsRes.error.message);
+      if (driversRes.error) console.error("Failed to fetch drivers:", driversRes.error.message);
       if (loadsRes.data) setTodayLoads(loadsRes.data);
       if (driversRes.data) setDrivers(driversRes.data);
 
@@ -145,16 +155,16 @@ export default function Dashboard() {
   // ── Today's Ops Summary (must be above early return to satisfy rules of hooks) ──
   const opsStats = useMemo(() => {
     if (!todayLoads.length) return null;
-    const totalRevenue = todayLoads.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-    const totalCosts = todayLoads.reduce((s: number, l: any) => s + Number(l.driver_pay || 0) + Number(l.fuel_cost || 0), 0);
-    const totalMiles = todayLoads.reduce((s: number, l: any) => s + Number(l.miles || 0), 0);
-    const waitLoads = todayLoads.filter((l: any) => l.wait_time_minutes > 0);
-    const avgWait = waitLoads.length ? Math.round(waitLoads.reduce((s: number, l: any) => s + l.wait_time_minutes, 0) / waitLoads.length) : 0;
-    const delivered = todayLoads.filter((l: any) => l.status === "delivered").length;
+    const totalRevenue = todayLoads.reduce((s: number, l) => s + Number(l.revenue || 0), 0);
+    const totalCosts = todayLoads.reduce((s: number, l) => s + Number(l.driver_pay || 0) + Number(l.fuel_cost || 0), 0);
+    const totalMiles = todayLoads.reduce((s: number, l) => s + Number(l.miles || 0), 0);
+    const waitLoads = todayLoads.filter((l) => (l.wait_time_minutes ?? 0) > 0);
+    const avgWait = waitLoads.length ? Math.round(waitLoads.reduce((s: number, l) => s + (l.wait_time_minutes ?? 0), 0) / waitLoads.length) : 0;
+    const delivered = todayLoads.filter((l) => l.status === "delivered").length;
 
     const driverName = (id: string | null) => drivers.find((d) => d.id === id)?.full_name ?? "Unknown";
     const byDriver: Record<string, { loads: number; miles: number; revenue: number }> = {};
-    todayLoads.forEach((l: any) => {
+    todayLoads.forEach((l) => {
       const name = driverName(l.driver_id);
       if (!byDriver[name]) byDriver[name] = { loads: 0, miles: 0, revenue: 0 };
       byDriver[name].loads += 1;
@@ -192,6 +202,7 @@ export default function Dashboard() {
         <p className="text-muted-foreground text-sm mt-1">Welcome to Anika Operations</p>
       </div>
 
+      <SectionErrorBoundary>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {statCards.map((s) => (
           <Card key={s.label} className="shadow-sm border-0 glass-card rounded-2xl hover:scale-[1.03] transition-transform duration-300 cursor-default relative accent-bar">
@@ -210,8 +221,10 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+      </SectionErrorBoundary>
 
       {/* ── Today's Operations Summary ── */}
+      <SectionErrorBoundary>
       {opsStats && (
         <Card className="shadow-sm border-0 glass-card rounded-2xl relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-accent/5 to-transparent pointer-events-none" />
@@ -259,7 +272,9 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       )}
+      </SectionErrorBoundary>
 
+      <SectionErrorBoundary>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="shadow-sm border-0 glass-card rounded-2xl">
           <CardHeader className="pb-2">
@@ -311,7 +326,9 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+      </SectionErrorBoundary>
 
+      <SectionErrorBoundary>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="shadow-sm border-0 glass-card rounded-2xl lg:col-span-2">
           <CardHeader className="pb-2">
@@ -388,7 +405,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
-      <AiChatbot />
+      </SectionErrorBoundary>
+      <Suspense fallback={null}><AiChatbot /></Suspense>
     </div>
   );
 }

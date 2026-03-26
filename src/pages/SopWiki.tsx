@@ -46,10 +46,11 @@ export default function SopWiki() {
   const { toast } = useToast();
 
   const fetchArticles = useCallback(async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("sop_articles")
       .select("*")
       .order("updated_at", { ascending: false });
+    if (error) { console.error("Failed to fetch SOP articles:", error.message); return; }
     if (data) setArticles(data as SopArticle[]);
   }, []);
 
@@ -78,7 +79,8 @@ export default function SopWiki() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    await supabase.from("sop_articles").delete().eq("id", deleteId);
+    const { error } = await supabase.from("sop_articles").delete().eq("id", deleteId);
+    if (error) { console.error("Failed to delete SOP article:", error.message); return; }
     setDeleteId(null);
     if (viewArticle?.id === deleteId) setViewArticle(null);
     fetchArticles();

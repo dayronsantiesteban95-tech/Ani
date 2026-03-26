@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { env } from "@/lib/env";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useToast } from "@/hooks/use-toast";
@@ -52,7 +53,7 @@ export default function TeamManagement() {
     return {
       Authorization: `Bearer ${session?.access_token}`,
       "Content-Type": "application/json",
-      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      apikey: env.SUPABASE_PUBLISHABLE_KEY,
     };
   }, []);
 
@@ -61,7 +62,7 @@ export default function TeamManagement() {
     try {
       const headers = await getAuthHeaders();
       const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/invite-user`,
+        `${env.SUPABASE_URL}/functions/v1/invite-user`,
         {
           method: "POST",
           headers,
@@ -86,7 +87,7 @@ export default function TeamManagement() {
     try {
       const headers = await getAuthHeaders();
       const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/invite-user`,
+        `${env.SUPABASE_URL}/functions/v1/invite-user`,
         {
           method: "POST",
           headers,
@@ -119,7 +120,7 @@ export default function TeamManagement() {
     try {
       const headers = await getAuthHeaders();
       const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/invite-user`,
+        `${env.SUPABASE_URL}/functions/v1/invite-user`,
         {
           method: "POST",
           headers,
@@ -143,7 +144,7 @@ export default function TeamManagement() {
     try {
       const headers = await getAuthHeaders();
       const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/invite-user`,
+        `${env.SUPABASE_URL}/functions/v1/invite-user`,
         {
           method: "POST",
           headers,

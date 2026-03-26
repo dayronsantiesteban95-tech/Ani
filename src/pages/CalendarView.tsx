@@ -31,7 +31,8 @@ export default function CalendarView() {
     if (!user) return;
     let query = supabase.from("tasks").select("id, title, priority, due_date, status");
     if (!isOwner) query = query.eq("assigned_to", user.id);
-    query.then(({ data }) => {
+    query.then(({ data, error }) => {
+      if (error) { console.error("Failed to fetch tasks:", error.message); return; }
       if (data) setTasks(data as Task[]);
     });
   }, [user, isOwner]);

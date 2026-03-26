@@ -25,10 +25,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
-    MapPin, Navigation, Truck, Package, Clock, Battery,
+    MapPin, Navigation, Truck, Package,
     CheckCircle2, AlertCircle, Wifi, WifiOff,
     ChevronRight, Phone, Camera, ArrowRight,
-    Power, Pause, Play, Radio,
+    Power, Radio,
 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────
@@ -107,20 +107,21 @@ export default function DriverPortal() {
     useEffect(() => {
         if (!user) return;
         (async () => {
-            const { data } = (await (supabase as any)
+            const { data, error: profileError } = await supabase
                 .from("drivers")
                 .select("id, full_name, hub, status")
                 .eq("user_id", user.id)
-                .single()) as { data: DriverProfile | null; error: any };
-            if (data) {
-                setDriver(data);
+                .single();
+            if (!profileError && data) {
+                setDriver(data as DriverProfile);
                 // Check for active shift
-                const { data: shift } = await supabase
+                const { data: shift, error: shiftError } = await supabase
                     .from("driver_shifts")
                     .select("id")
                     .eq("driver_id", data.id)
                     .is("shift_end", null)
-                    .single() as { data: { id: string } | null };
+                    .single();
+                if (shiftError && shiftError.code !== "PGRST116") console.error("Failed to fetch active shift:", shiftError.message);
                 if (shift) {
                     setShiftId(shift.id);
                     setOnDuty(true);
@@ -134,13 +135,13 @@ export default function DriverPortal() {
     const fetchLoads = useCallback(async () => {
         if (!driver) return;
         const today = new Date().toISOString().split("T")[0];
-        const { data } = await supabase
+        const { data, error: loadsError } = await supabase
             .from("daily_loads")
             .select("id, reference_number, client_name, pickup_address, delivery_address, status, packages, service_type, start_time, end_time, wait_time_minutes, comments")
             .eq("driver_id", driver.id)
             .eq("load_date", today)
             .order("start_time", { ascending: true });
-        if (data) setLoads(data as DriverLoad[]);
+        if (!loadsError && data) setLoads(data as DriverLoad[]);
     }, [driver]);
 
     useEffect(() => { fetchLoads(); }, [fetchLoads]);
@@ -183,12 +184,13 @@ export default function DriverPortal() {
         } else {
             // Go off duty
             if (shiftId) {
-                await supabase.from("driver_shifts").update({
+                const { error: endShiftError } = await supabase.from("driver_shifts").update({
                     shift_end: new Date().toISOString(),
                     status: "off_duty",
                     end_lat: gps.position?.latitude,
                     end_lng: gps.position?.longitude,
                 }).eq("id", shiftId);
+                if (endShiftError) console.error("Failed to end shift:", endShiftError.message);
             }
             gps.stopTracking();
             setOnDuty(false);
@@ -223,7 +225,7 @@ export default function DriverPortal() {
         }
 
         // Log the status event with GPS
-        await supabase.from("load_status_events").insert({
+        const { error: eventError } = await supabase.from("load_status_events").insert({
             load_id: load.id,
             driver_id: driver.id,
             old_status: load.status,
@@ -232,6 +234,7 @@ export default function DriverPortal() {
             longitude: gps.position?.longitude,
             note: statusNote || null,
         });
+        if (eventError) console.error("Failed to log status event:", eventError.message);
 
         setStatusNote("");
         setUpdatingLoadId(null);
@@ -412,7 +415,7 @@ export default function DriverPortal() {
                                                         variant="outline" size="sm"
                                                         className="flex-1 h-9 text-xs gap-1.5 rounded-lg"
                                                         onClick={() => {
-                                                            const addr = encodeURIComponent(load.delivery_address!);
+                                                            const addr = encodeURIComponent(load.delivery_address);
                                                             window.open(`https://www.google.com/maps/dir/?api=1&destination=${addr}`, "_blank");
                                                         }}
                                                     >
@@ -448,7 +451,8 @@ export default function DriverPortal() {
                                                             if (uploadErr) {
                                                                 toast({ title: "Upload failed", description: uploadErr.message, variant: "destructive" });
                                                             } else {
-                                                                await supabase.from("daily_loads").update({ pod_confirmed: true }).eq("id", load.id);
+                                                                const { error: podError } = await supabase.from("daily_loads").update({ pod_confirmed: true }).eq("id", load.id);
+                                                                if (podError) console.error("Failed to confirm POD:", podError.message);
                                                                 toast({ title: "📸 POD captured!", description: "Photo uploaded successfully." });
                                                                 fetchLoads();
                                                             }

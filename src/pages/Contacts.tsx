@@ -19,6 +19,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/PageSkeleton";
 import { Plus, Search, Pencil, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -49,14 +50,15 @@ export default function Contacts() {
   const { toast } = useToast();
 
   const fetch = useCallback(async () => {
-    const { data } = await supabase.from("contacts").select("*").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("contacts").select("*").order("created_at", { ascending: false });
+    if (error) { console.error("Failed to fetch contacts:", error.message); setLoading(false); return; }
     if (data) setContacts(data as Contact[]);
     setLoading(false);
   }, []);
 
   useEffect(() => {
     fetch();
-    supabase.from("companies").select("id, name").then(({ data }) => { if (data) setCompanies(data); });
+    supabase.from("companies").select("id, name").then(({ data, error }) => { if (error) { console.error("Failed to fetch companies:", error.message); return; } if (data) setCompanies(data); });
   }, [fetch]);
 
   useEffect(() => {
@@ -90,7 +92,12 @@ export default function Contacts() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    await supabase.from("contacts").delete().eq("id", deleteId);
+    const { error } = await supabase.from("contacts").delete().eq("id", deleteId);
+    if (error) {
+      console.error("Failed to delete contact:", error.message);
+      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+      return;
+    }
     setDeleteId(null);
     fetch();
   };
@@ -122,15 +129,11 @@ export default function Contacts() {
         <Input placeholder="Search contacts..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
       </div>
 
+      {loading ? (
+        <TableSkeleton rows={5} />
+      ) : (
       <Card>
         <CardContent className="p-0">
-          {loading ? (
-            <div className="p-4 space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full shimmer" />
-              ))}
-            </div>
-          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -172,9 +175,9 @@ export default function Contacts() {
                 )}
               </TableBody>
             </Table>
-          )}
         </CardContent>
       </Card>
+      )}
 
       <Dialog open={isOpen} onOpenChange={() => { setShowForm(false); setEditContact(null); }}>
         <DialogContent>

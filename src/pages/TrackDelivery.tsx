@@ -96,7 +96,7 @@ export default function TrackDelivery() {
 
         const { data, error: err } = await supabase.rpc("get_tracking_info", { p_token: t.trim().toUpperCase() }) as {
             data: TrackingData | null;
-            error: any;
+            error: unknown;
         };
 
         if (err) {

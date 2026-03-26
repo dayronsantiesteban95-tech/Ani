@@ -18,16 +18,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-    X, MapPin, Clock, Package, DollarSign, Truck, FileText, Route,
-    AlertTriangle, CheckCircle2, Timer, Copy, ExternalLink, Navigation,
-    Building2, User, Hash, Ruler, Weight, Gauge,
+    X, MapPin, Clock, Package, DollarSign, FileText,
+    AlertTriangle, CheckCircle2, Copy,
+    Building2, User, Hash,
 } from "lucide-react";
 import { fmtMoney, fmtWait } from "@/lib/formatters";
 
@@ -212,9 +209,9 @@ export default function LoadDetailPanel({
     };
 
     // Quick field update
-    const quickUpdate = useCallback(async (field: string, value: any) => {
+    const quickUpdate = useCallback(async (field: string, value: unknown) => {
         setSaving(true);
-        const { error } = await (supabase as any)
+        const { error } = await supabase
             .from("daily_loads")
             .update({ [field]: value, updated_at: new Date().toISOString() })
             .eq("id", load.id);

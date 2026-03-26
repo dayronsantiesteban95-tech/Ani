@@ -4,25 +4,28 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { env } from "@/lib/env";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
+const CHAT_URL = `${env.SUPABASE_URL}/functions/v1/ai-chat`;
 
 async function streamChat({
   messages,
   onDelta,
   onDone,
+  onError,
 }: {
   messages: Msg[];
   onDelta: (t: string) => void;
   onDone: () => void;
+  onError: (msg: string) => void;
 }) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) {
-    toast.error("Please log in to use the AI assistant.");
+    onError("Please log in to use the AI assistant.");
     onDone();
     return;
   }
@@ -32,18 +35,18 @@ async function streamChat({
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${session.access_token}`,
-      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      apikey: env.SUPABASE_PUBLISHABLE_KEY,
     },
     body: JSON.stringify({ messages }),
   });
 
   if (resp.status === 429) {
-    toast.error("Rate limit exceeded. Please wait a moment and try again.");
+    onError("Rate limit exceeded. Please wait a moment and try again.");
     onDone();
     return;
   }
   if (resp.status === 402) {
-    toast.error("AI credits exhausted. Please add funds in workspace settings.");
+    onError("AI credits exhausted. Please add funds in workspace settings.");
     onDone();
     return;
   }
@@ -93,6 +96,7 @@ export default function AiChatbot() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -125,10 +129,11 @@ export default function AiChatbot() {
         messages: [...messages, userMsg],
         onDelta: upsert,
         onDone: () => setLoading(false),
+        onError: (msg) => toast({ title: msg, variant: "destructive" }),
       });
     } catch (e) {
       console.error(e);
-      toast.error("Failed to get AI response");
+      toast({ title: "Failed to get AI response", variant: "destructive" });
       setLoading(false);
     }
   };

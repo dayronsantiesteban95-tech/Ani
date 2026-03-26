@@ -29,6 +29,7 @@ import {
   Pencil, Trash2, Search, Crosshair, CalendarIcon, Truck,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/PageSkeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import LeadDetailPanel from "@/components/LeadDetailPanel";
@@ -104,18 +105,21 @@ export default function Pipeline() {
   const { toast } = useToast();
 
   const fetchLeads = useCallback(async () => {
-    const { data } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
+    if (error) { console.error("Failed to fetch leads:", error.message); }
     if (data) setLeads(data as Lead[]);
     setLoading(false);
   }, []);
 
   const fetchLastContacts = useCallback(async () => {
-    const { data } = await supabase.rpc("get_last_contacts");
+    const { data, error: rpcError } = await supabase.rpc("get_last_contacts");
+    if (rpcError) { console.error("Failed to fetch last contacts via rpc:", rpcError.message); }
     if (!data) {
-      const { data: interactions } = await supabase
+      const { data: interactions, error: interactionsError } = await supabase
         .from("lead_interactions")
         .select("lead_id, created_at")
         .order("created_at", { ascending: false });
+      if (interactionsError) { console.error("Failed to fetch lead interactions:", interactionsError.message); }
       if (interactions) {
         const map: Record<string, string> = {};
         for (const i of interactions) {
@@ -149,7 +153,8 @@ export default function Pipeline() {
 
   const handleDrop = async (stage: string) => {
     if (!draggedId) return;
-    await supabase.from("leads").update({ stage: stage as Database["public"]["Enums"]["lead_stage"] }).eq("id", draggedId);
+    const { error } = await supabase.from("leads").update({ stage: stage as Database["public"]["Enums"]["lead_stage"] }).eq("id", draggedId);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); }
     setDraggedId(null);
     fetchLeads();
   };
@@ -187,7 +192,7 @@ export default function Pipeline() {
     }
     setFormErrors({});
 
-    const payload: any = {
+    const payload: Omit<Lead, "id" | "stage" | "created_at" | "main_lanes"> = {
       company_name: companyName,
       contact_person: contactPerson,
       phone: phone || null,
@@ -217,7 +222,8 @@ export default function Pipeline() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    await supabase.from("leads").delete().eq("id", deleteId);
+    const { error } = await supabase.from("leads").delete().eq("id", deleteId);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); }
     setDeleteId(null);
     if (selectedLead?.id === deleteId) setSelectedLead(null);
     fetchLeads();
@@ -243,21 +249,12 @@ export default function Pipeline() {
       <div className="space-y-4 animate-in">
         <div className="flex items-center justify-between">
           <div>
-            <Skeleton className="h-8 w-48 shimmer" />
-            <Skeleton className="h-4 w-64 mt-2 shimmer" />
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-64 mt-2" />
           </div>
-          <Skeleton className="h-10 w-28 shimmer" />
+          <Skeleton className="h-10 w-28" />
         </div>
-        <div className="flex gap-4 min-h-[60vh] overflow-x-auto pb-4">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="bg-muted/40 rounded-2xl p-3 min-w-[230px] flex-1 space-y-3">
-              <Skeleton className="h-5 w-24 shimmer" />
-              {Array.from({ length: 3 }).map((_, j) => (
-                <Skeleton key={j} className="h-28 w-full rounded-xl shimmer" />
-              ))}
-            </div>
-          ))}
-        </div>
+        <TableSkeleton rows={6} />
       </div>
     );
   }

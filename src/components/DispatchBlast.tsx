@@ -134,7 +134,7 @@ export default function DispatchBlastPanel({
     const toggleDriver = (id: string) => {
         setSelectedDrivers((prev) => {
             const next = new Set(prev);
-            next.has(id) ? next.delete(id) : next.add(id);
+            if (next.has(id)) { next.delete(id); } else { next.add(id); }
             return next;
         });
     };
@@ -168,6 +168,8 @@ export default function DispatchBlastPanel({
             setMessage("");
             setSelectedLoad("");
             setShowCreate(false);
+        } else {
+            console.error("create blast failed: no data returned");
         }
         setSending(false);
     };

@@ -151,6 +151,21 @@ export async function deleteOnfleetTask(taskId: string): Promise<void> {
 
 // ─── Sync (Pull → daily_loads) ────────────────────────
 
+interface SyncPayload {
+    reference_number: string;
+    status: string;
+    driver_id: string | null;
+    delivery_address: string;
+    wait_time_minutes: number;
+    packages: number;
+    updated_at: string;
+    pod_confirmed?: boolean;
+    miles?: number;
+    start_time?: string;
+    end_time?: string;
+    detention_eligible?: boolean;
+}
+
 /** Sync a single Onfleet task → daily_loads row */
 export async function syncTaskToLoad(
     task: OnfleetTask,
@@ -164,7 +179,7 @@ export async function syncTaskToLoad(
         : 0;
 
     // Build upsert payload — keyed by reference_number (the Onfleet shortId)
-    const payload: Record<string, unknown> = {
+    const payload: SyncPayload = {
         reference_number: task.shortId,
         status,
         driver_id: ourDriverId,
@@ -198,7 +213,7 @@ export async function syncTaskToLoad(
     // Upsert using reference_number as the conflict key
     const { error } = await supabase
         .from("daily_loads")
-        .upsert(payload as any, { onConflict: "reference_number" });
+        .upsert(payload, { onConflict: "reference_number" });
 
     if (error) throw new Error(`Sync failed for ${task.shortId}: ${error.message}`);
     return payload;
@@ -245,12 +260,13 @@ export async function getLiveGPS(
     const workers = await getWorkerLocations();
 
     return workers
-        .filter((w) => w.location && w.onDuty)
+        .filter((w): w is OnfleetWorker & { location: NonNullable<OnfleetWorker["location"]> } =>
+            w.location != null && w.onDuty)
         .map((w) => ({
             driverId: driverMapping[w.id] ?? w.id,
             name: w.name,
-            lat: w.location!.latitude,
-            lng: w.location!.longitude,
+            lat: w.location.latitude,
+            lng: w.location.longitude,
             onDuty: w.onDuty,
             activeTaskId: w.activeTask ?? null,
             lastSeen: w.timeLastSeen ?? Date.now(),

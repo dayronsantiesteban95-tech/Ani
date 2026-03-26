@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import type { ElementType } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import LoadDetailPanel from "@/components/LoadDetailPanel";
 import type { LoadDetail } from "@/components/LoadDetailPanel";
+import { SectionErrorBoundary } from "@/components/SectionErrorBoundary";
 
 // ═══════════════════════════════════════════
 // Types
@@ -28,11 +30,17 @@ interface Load {
     reference_number: string | null;
     client_name: string | null;
     driver_id: string | null;
+    dispatcher_id: string | null;
+    vehicle_id: string | null;
     pickup_address: string | null;
     delivery_address: string | null;
     miles: number;
+    deadhead_miles: number;
     revenue: number;
+    driver_pay: number;
+    fuel_cost: number;
     packages: number;
+    weight_lbs: number | null;
     status: string;
     hub: string;
     service_type: string;
@@ -41,6 +49,10 @@ interface Load {
     wait_time_minutes: number;
     load_date: string;
     shift: string;
+    detention_eligible: boolean;
+    detention_billed: number;
+    comments: string | null;
+    pod_confirmed: boolean;
     created_at: string;
 }
 
@@ -68,7 +80,7 @@ function MetricCard({
 }: {
     label: string;
     value: string | number;
-    icon: React.ElementType;
+    icon: ElementType;
     trend?: { direction: "up" | "down" | "flat"; label: string };
     variant?: "default" | "success" | "warning" | "danger" | "live";
     compact?: boolean;
@@ -385,7 +397,7 @@ function MapPlaceholder({ driverCount, loadCount }: { driverCount: number; loadC
 // ═══════════════════════════════════════════
 
 export default function CommandCenter() {
-    const { user } = useAuth();
+    useAuth();
     const { toast } = useToast();
     const [loads, setLoads] = useState<Load[]>([]);
     const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -402,18 +414,25 @@ export default function CommandCenter() {
         alerts: routeAlerts,
         stats: alertStats,
         dismissAll: dismissAllAlerts,
-        loading: alertsLoading,
     } = useAlerts({ realtime: true });
 
     // ── Fetch ──
     const fetchData = useCallback(async () => {
         setLoading(true);
         const [loadsRes, driversRes] = await Promise.all([
-            (supabase as any).from("daily_loads").select("*").eq("load_date", today).order("created_at", { ascending: false }),
-            (supabase as any).from("drivers").select("*").order("full_name"),
+            supabase.from("daily_loads").select("*").eq("load_date", today).order("created_at", { ascending: false }),
+            supabase.from("drivers").select("*").order("full_name"),
         ]);
-        if (loadsRes.data) setLoads(loadsRes.data);
-        if (driversRes.data) setDrivers(driversRes.data);
+        if (loadsRes.error) {
+            console.error("Failed to fetch loads:", loadsRes.error.message);
+        } else {
+            setLoads(loadsRes.data as Load[]);
+        }
+        if (driversRes.error) {
+            console.error("Failed to fetch drivers:", driversRes.error.message);
+        } else {
+            setDrivers(driversRes.data as Driver[]);
+        }
         setLoading(false);
     }, [today]);
 
@@ -423,8 +442,8 @@ export default function CommandCenter() {
     useEffect(() => {
         const channel = supabase
             .channel("cc-realtime")
-            .on("postgres_changes" as any, { event: "*", schema: "public", table: "daily_loads" }, () => fetchData())
-            .on("postgres_changes" as any, { event: "*", schema: "public", table: "drivers" }, () => fetchData())
+            .on("postgres_changes",{ event: "*", schema: "public", table: "daily_loads" }, () => fetchData())
+            .on("postgres_changes",{ event: "*", schema: "public", table: "drivers" }, () => fetchData())
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
@@ -503,15 +522,18 @@ export default function CommandCenter() {
     return (
         <div className="cc-layout">
             {/* ────── MAP ────── */}
+            <SectionErrorBoundary>
             <div className="cc-map-container">
                 <MapPlaceholder
                     driverCount={metrics.activeDrivers}
                     loadCount={metrics.inProgress}
                 />
             </div>
+            </SectionErrorBoundary>
 
             {/* ────── METRICS BAR (top) ────── */}
             <div className="cc-metrics-bar">
+                <SectionErrorBoundary>
                 <div className="flex-1 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
                     <MetricCard label="Today's Loads" value={metrics.total} icon={Package} />
                     <MetricCard
@@ -546,6 +568,7 @@ export default function CommandCenter() {
                         variant="success"
                     />
                 </div>
+                </SectionErrorBoundary>
                 {/* Sidebar toggle */}
                 <div className="flex items-start">
                     <Button
@@ -695,7 +718,7 @@ export default function CommandCenter() {
                                                 const load = loads.find(l => l.id === loadId);
                                                 if (load) setSelectedLoad(load);
                                             }}
-                                            onBlast={(loadId) => {
+                                            onBlast={(_loadId) => {
                                                 window.location.href = "/dispatch";
                                                 toast({ title: "Opening Blast Panel...", description: "Select the load to blast" });
                                             }}
@@ -735,6 +758,7 @@ export default function CommandCenter() {
             )}
 
             {/* ────── ALERT PANEL (bottom-left) ────── */}
+            <SectionErrorBoundary>
             {combinedAlerts.length > 0 && !showSidebar && (
                 <div className="cc-alert-panel cc-overlay-panel animate-panel-up p-3 space-y-2 sleek-scroll">
                     <div className="flex items-center justify-between mb-1">
@@ -761,13 +785,14 @@ export default function CommandCenter() {
                                 const load = loads.find(l => l.id === loadId);
                                 if (load) setSelectedLoad(load);
                             }}
-                            onBlast={(loadId) => {
+                            onBlast={(_loadId) => {
                                 window.location.href = "/dispatch";
                             }}
                         />
                     ))}
                 </div>
             )}
+            </SectionErrorBoundary>
 
             {/* ────── LIVE INDICATOR (bottom-right when sidebar hidden) ────── */}
             {!showSidebar && (
@@ -785,7 +810,7 @@ export default function CommandCenter() {
             {/* ────── LOAD DETAIL PANEL (from alert click) ────── */}
             {selectedLoad && (
                 <LoadDetailPanel
-                    load={selectedLoad as unknown as LoadDetail}
+                    load={selectedLoad}
                     driverName={driverName(selectedLoad.driver_id)}
                     vehicleName="—"
                     dispatcherName="—"

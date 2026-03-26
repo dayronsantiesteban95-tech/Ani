@@ -39,7 +39,7 @@ export function useNotifications() {
         if (!error && data) {
             // Fetch triggered_by profiles in one go
             const triggerIds = [...new Set(
-                (data as Notification[]).filter(n => n.triggered_by).map(n => n.triggered_by as string)
+                data.filter(n => n.triggered_by).map(n => n.triggered_by as string)
             )];
             let profileMap: Record<string, string> = {};
 
@@ -54,7 +54,7 @@ export function useNotifications() {
                 }
             }
 
-            const enriched = (data as Notification[]).map(n => ({
+            const enriched = data.map(n => ({
                 ...n,
                 triggered_by_profile: n.triggered_by && profileMap[n.triggered_by]
                     ? { full_name: profileMap[n.triggered_by] }
@@ -69,10 +69,14 @@ export function useNotifications() {
 
     // Mark a single notification as read
     const markAsRead = useCallback(async (notificationId: string) => {
-        await notificationsTable()
-            .update({ is_read: true } as never)
+        const { error } = await notificationsTable()
+            .update({ is_read: true })
             .eq("id", notificationId);
 
+        if (error) {
+            console.error("[useNotifications] markAsRead error:", error.message);
+            return;
+        }
         setNotifications(prev =>
             prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
         );
@@ -82,11 +86,15 @@ export function useNotifications() {
     // Mark all notifications as read
     const markAllAsRead = useCallback(async () => {
         if (!user) return;
-        await notificationsTable()
-            .update({ is_read: true } as never)
+        const { error } = await notificationsTable()
+            .update({ is_read: true })
             .eq("user_id", user.id)
-            .eq("is_read" as string, false as never);
+            .eq("is_read", false);
 
+        if (error) {
+            console.error("[useNotifications] markAllAsRead error:", error.message);
+            return;
+        }
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         setUnreadCount(0);
     }, [user]);
@@ -94,8 +102,12 @@ export function useNotifications() {
     // Delete a single notification
     const deleteNotification = useCallback(async (notificationId: string) => {
         const notification = notifications.find(n => n.id === notificationId);
-        await notificationsTable().delete().eq("id", notificationId);
+        const { error } = await notificationsTable().delete().eq("id", notificationId);
 
+        if (error) {
+            console.error("[useNotifications] deleteNotification error:", error.message);
+            return;
+        }
         setNotifications(prev => prev.filter(n => n.id !== notificationId));
         if (notification && !notification.is_read) {
             setUnreadCount(prev => Math.max(0, prev - 1));
@@ -105,7 +117,11 @@ export function useNotifications() {
     // Clear all notifications
     const clearAll = useCallback(async () => {
         if (!user) return;
-        await notificationsTable().delete().eq("user_id", user.id);
+        const { error } = await notificationsTable().delete().eq("user_id", user.id);
+        if (error) {
+            console.error("[useNotifications] clearAll error:", error.message);
+            return;
+        }
         setNotifications([]);
         setUnreadCount(0);
     }, [user]);

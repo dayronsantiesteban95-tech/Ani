@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { fmtMoney, fmtWait, todayISO, daysAgoISO } from "@/lib/formatters";
 import { supabase } from "@/integrations/supabase/client";
+import type { OrderFormData } from "@/lib/quickLoadHelpers";
 import { CITY_HUBS } from "@/lib/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -28,6 +29,7 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatCardsSkeleton, TableSkeleton } from "@/components/PageSkeleton";
 import {
     Truck, Clock, DollarSign, Plus, Pencil, Trash2, MapPin,
     AlertTriangle, CheckCircle, BarChart3, FileText, Copy, Timer, Package,
@@ -40,8 +42,10 @@ import {
 import LiveDriverMap from "@/components/LiveDriverMap";
 import IntegrationSyncPanel from "@/components/IntegrationSyncPanel";
 import RouteOptimizerPanel from "@/components/RouteOptimizerPanel";
-import CSVImportPanel, { exportToCSV } from "@/components/CSVImportPanel";
-import QuickLoadEntry, { cloneLoadData } from "@/components/QuickLoadEntry";
+import CSVImportPanel from "@/components/CSVImportPanel";
+import { exportToCSV } from "@/lib/quickLoadHelpers";
+import QuickLoadEntry from "@/components/QuickLoadEntry";
+import { cloneLoadData } from "@/lib/quickLoadHelpers";
 import AutoDispatchPanel from "@/components/AutoDispatchPanel";
 import DispatchBlastPanel from "@/components/DispatchBlast";
 import CustomerOrderHistory from "@/components/CustomerOrderHistory";
@@ -49,6 +53,7 @@ import ActivityLog from "@/components/ActivityLog";
 import { useRealtimeDriverMap } from "@/hooks/useRealtimeDriverMap";
 import LoadDetailPanel from "@/components/LoadDetailPanel";
 import type { LoadDetail } from "@/components/LoadDetailPanel";
+import { SectionErrorBoundary } from "@/components/SectionErrorBoundary";
 
 // ─── Types ──────────────────────────────────────────
 type Driver = { id: string; full_name: string; hub: string; status: string };
@@ -87,6 +92,9 @@ type Load = {
     sla_deadline?: string | null;
     route_distance_meters?: number | null;
     route_duration_seconds?: number | null;
+    delivery_lat?: number | null;
+    delivery_lng?: number | null;
+    tracking_token?: string | null;
 };
 type Profile = { user_id: string; full_name: string };
 
@@ -109,6 +117,8 @@ const WAIT_COLORS = [
     { max: Infinity, label: "Critical", class: "bg-red-500/15 text-red-700 dark:text-red-400" },
 ];
 const DETENTION_THRESHOLD = 30; // minutes — industry standard
+
+const db = supabase;
 
 function waitBadgeClass(mins: number) {
     return (WAIT_COLORS.find((w) => mins <= w.max) ?? WAIT_COLORS[3]).class;
@@ -141,35 +151,37 @@ export default function DispatchTracker() {
     const [toolsOpen, setToolsOpen] = useState(false);
     const [activeTool, setActiveTool] = useState<"quick" | "import" | "history" | "log" | "blast" | null>("quick");
     const [autoDispatchLoadId, setAutoDispatchLoadId] = useState<string | null>(null);
-    const [clonePrefill, setClonePrefill] = useState<any>(null);
+    const [clonePrefill, setClonePrefill] = useState<Partial<OrderFormData> | null>(null);
     const [deleteId, setDeleteId] = useState<string | null>(null);
     // ── Detail panel ─────────────────────────
     const [selectedLoadDetail, setSelectedLoadDetail] = useState<Load | null>(null);
 
     // ── Fetch helpers ────────────────────────
-    const db = supabase;
-
     const fetchLoads = useCallback(async () => {
-        const { data } = await db.from("daily_loads")
+        const { data, error } = await db.from("daily_loads")
             .select("*")
             .gte("load_date", dateRangeStart)
             .lte("load_date", dateRangeEnd)
             .order("load_date", { ascending: false });
+        if (error) console.error("Failed to fetch loads:", error.message);
         if (data) setLoads(data);
     }, [dateRangeStart, dateRangeEnd]);
 
     const fetchDrivers = useCallback(async () => {
-        const { data } = await db.from("drivers").select("id, full_name, hub, status").eq("status", "active");
+        const { data, error } = await db.from("drivers").select("id, full_name, hub, status").eq("status", "active");
+        if (error) console.error("Failed to fetch drivers:", error.message);
         if (data) setDrivers(data);
     }, []);
 
     const fetchVehicles = useCallback(async () => {
-        const { data } = await db.from("vehicles").select("id, vehicle_name, vehicle_type, hub, status").eq("status", "active");
+        const { data, error } = await db.from("vehicles").select("id, vehicle_name, vehicle_type, hub, status").eq("status", "active");
+        if (error) console.error("Failed to fetch vehicles:", error.message);
         if (data) setVehicles(data);
     }, []);
 
     const fetchProfiles = useCallback(async () => {
-        const { data } = await supabase.from("profiles").select("user_id, full_name");
+        const { data, error } = await supabase.from("profiles").select("user_id, full_name");
+        if (error) console.error("Failed to fetch profiles:", error.message);
         if (data) setProfiles(data as Profile[]);
     }, []);
 
@@ -224,18 +236,17 @@ export default function DispatchTracker() {
             updated_at: new Date().toISOString(),
         };
 
-        const { error } = editLoad
-            ? await db.from("daily_loads").update(payload).eq("id", editLoad.id)
-            : await db.from("daily_loads").insert(payload);
-
-        if (error) {
-            toast({ title: "Error", description: error.message, variant: "destructive" });
+        if (editLoad) {
+            const { error } = await db.from("daily_loads").update(payload).eq("id", editLoad.id);
+            if (error) { console.error("update load failed:", error.message); toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
         } else {
-            toast({ title: editLoad ? "Load updated" : "Load added" });
-            setDialogOpen(false);
-            setEditLoad(null);
-            fetchLoads();
+            const { error } = await db.from("daily_loads").insert(payload);
+            if (error) { console.error("insert load failed:", error.message); toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
         }
+        toast({ title: editLoad ? "Load updated" : "Load added" });
+        setDialogOpen(false);
+        setEditLoad(null);
+        fetchLoads();
     };
 
     const handleDelete = async () => {
@@ -260,7 +271,7 @@ export default function DispatchTracker() {
     };
 
     // ── Lookups ──────────────────────────────
-    const driverName = (id: string | null) => drivers.find((d) => d.id === id)?.full_name ?? "—";
+    const driverName = useCallback((id: string | null) => drivers.find((d) => d.id === id)?.full_name ?? "—", [drivers]);
     const vehicleName = (id: string | null) => vehicles.find((v) => v.id === id)?.vehicle_name ?? "—";
     const dispatcherName = (id: string | null) => profiles.find((p) => p.user_id === id)?.full_name ?? "—";
     const statusInfo = (s: string) => STATUSES.find((st) => st.value === s) ?? STATUSES[0];
@@ -312,7 +323,7 @@ export default function DispatchTracker() {
             .sort((a, b) => b.avg - a.avg);
 
         return { avgAll, detentionEligible, detentionBilled, clientWait, driverWait };
-    }, [loads, drivers]);
+    }, [loads, driverName]);
 
     // Daily report
     const dailyReport = useMemo(() => {
@@ -350,7 +361,7 @@ export default function DispatchTracker() {
                 { label: "Night", loads: nightShift.length, miles: nightShift.reduce((s, l) => s + Number(l.miles), 0), revenue: nightShift.reduce((s, l) => s + Number(l.revenue), 0) },
             ],
         };
-    }, [loads, selectedDate, drivers]);
+    }, [loads, selectedDate, driverName]);
 
     const copyReport = () => {
         const r = dailyReport;
@@ -366,10 +377,13 @@ export default function DispatchTracker() {
 
     // ── Skeleton ─────────────────────────────
     if (loading) return (
-        <div className="space-y-4 animate-in">
-            <Skeleton className="h-8 w-64" />
-            <div className="grid grid-cols-4 gap-4">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div>
-            <Skeleton className="h-96 rounded-2xl" />
+        <div className="space-y-6 animate-in">
+            <div>
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-80 mt-2" />
+            </div>
+            <StatCardsSkeleton count={4} />
+            <TableSkeleton rows={8} />
         </div>
     );
 
@@ -469,11 +483,11 @@ export default function DispatchTracker() {
                                     client_name: l.client_name,
                                     delivery_address: l.delivery_address,
                                     pickup_address: l.pickup_address,
-                                    delivery_lat: (l as any).delivery_lat ?? null,
-                                    delivery_lng: (l as any).delivery_lng ?? null,
+                                    delivery_lat: l.delivery_lat ?? null,
+                                    delivery_lng: l.delivery_lng ?? null,
                                     status: l.status,
                                     packages: l.packages,
-                                    tracking_token: (l as any).tracking_token ?? null,
+                                    tracking_token: l.tracking_token ?? null,
                                 }))}
                                 onRouteApplied={() => fetchLoads()}
                             />
@@ -546,6 +560,7 @@ export default function DispatchTracker() {
                     <div className={`grid gap-4 ${toolsOpen ? "grid-cols-1 lg:grid-cols-3" : "grid-cols-1"}`}>
                         {/* Load Table */}
                         <div className={toolsOpen ? "lg:col-span-2" : ""}>
+                            <SectionErrorBoundary>
                             <Card className="glass-card rounded-2xl overflow-hidden">
                                 <Table>
                                     <TableHeader>
@@ -655,10 +670,12 @@ export default function DispatchTracker() {
                                     </TableBody>
                                 </Table>
                             </Card>
+                            </SectionErrorBoundary>
                         </div>
 
                         {/* Tools Sidebar */}
                         {toolsOpen && (
+                            <SectionErrorBoundary>
                             <div className="space-y-4">
                                 {/* Tool Tabs */}
                                 <div className="flex gap-1 flex-wrap">
@@ -747,6 +764,7 @@ export default function DispatchTracker() {
                                     <ActivityLog compact />
                                 )}
                             </div>
+                            </SectionErrorBoundary>
                         )}
                     </div>
                 </TabsContent>

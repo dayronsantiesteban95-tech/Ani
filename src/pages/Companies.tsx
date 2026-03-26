@@ -17,6 +17,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/PageSkeleton";
 import { Plus, Search, Pencil, Trash2, Building2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -44,7 +45,8 @@ export default function Companies() {
   const { toast } = useToast();
 
   const fetch = useCallback(async () => {
-    const { data } = await supabase.from("companies").select("*").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("companies").select("*").order("created_at", { ascending: false });
+    if (error) { console.error("Failed to fetch companies:", error.message); setLoading(false); return; }
     if (data) setCompanies(data as Company[]);
     setLoading(false);
   }, []);
@@ -82,7 +84,12 @@ export default function Companies() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    await supabase.from("companies").delete().eq("id", deleteId);
+    const { error } = await supabase.from("companies").delete().eq("id", deleteId);
+    if (error) {
+      console.error("Failed to delete company:", error.message);
+      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+      return;
+    }
     setDeleteId(null);
     fetch();
   };
@@ -110,15 +117,11 @@ export default function Companies() {
         <Input placeholder="Search companies..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
       </div>
 
+      {loading ? (
+        <TableSkeleton rows={5} />
+      ) : (
       <Card>
         <CardContent className="p-0">
-          {loading ? (
-            <div className="p-4 space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full shimmer" />
-              ))}
-            </div>
-          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -162,9 +165,9 @@ export default function Companies() {
                 )}
               </TableBody>
             </Table>
-          )}
         </CardContent>
       </Card>
+      )}
 
       <Dialog open={isOpen} onOpenChange={() => { setShowForm(false); setEditCompany(null); }}>
         <DialogContent>

@@ -204,6 +204,10 @@ export default function LeadDetailPanel({ lead, open, onClose, onLeadUpdated }: 
                 .order("created_at", { ascending: true }),
         ]);
 
+        if (interactionsRes.error) console.error("fetch lead_interactions failed:", interactionsRes.error.message);
+        if (quotesRes.error) console.error("fetch saved_quotes failed:", quotesRes.error.message);
+        if (contactsRes.error) console.error("fetch contacts failed:", contactsRes.error.message);
+        if (seqRes.error) console.error("fetch lead_sequences failed:", seqRes.error.message);
         setInteractions((interactionsRes.data as Interaction[]) ?? []);
         setQuotes((quotesRes.data as SavedQuote[]) ?? []);
         setContacts((contactsRes.data as Contact[]) ?? []);

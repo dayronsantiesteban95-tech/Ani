@@ -75,11 +75,12 @@ export function AppSidebar() {
   }, [dark]);
 
   const fetchReplyCount = useCallback(async () => {
-    const { count } = await supabase
+    const { count, error } = await supabase
       .from("lead_sequences")
       .select("*", { count: "exact", head: true })
       .in("response_status", ["replied", "interested_call"])
       .neq("status", "completed");
+    if (error) { console.error("Failed to fetch reply count:", error.message); return; }
     setReplyCount(count || 0);
   }, []);
 

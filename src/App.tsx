@@ -1,16 +1,15 @@
 import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/AppLayout";
-import Auth from "@/pages/Auth";
-import Dashboard from "@/pages/Dashboard";
-import NotFound from "./pages/NotFound";
 
-// Lazy-loaded pages — these are the largest chunks
+// Lazy-loaded pages
+const Auth = lazy(() => import("@/pages/Auth"));
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
 const Pipeline = lazy(() => import("@/pages/Pipeline"));
 const NurtureEngine = lazy(() => import("@/pages/NurtureEngine"));
 const RateCalculator = lazy(() => import("@/pages/RateCalculator"));
@@ -27,7 +26,7 @@ const PodManager = lazy(() => import("@/pages/PodManager"));
 const CommandCenter = lazy(() => import("@/pages/CommandCenter"));
 const DriverPortal = lazy(() => import("@/pages/DriverPortal"));
 const TrackDelivery = lazy(() => import("@/pages/TrackDelivery"));
-import CommandBar from "@/components/CommandBar";
+const CommandBar = lazy(() => import("@/components/CommandBar"));
 
 const queryClient = new QueryClient();
 
@@ -58,7 +57,6 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner />
       <BrowserRouter>
         <CommandBar />
         <Suspense fallback={

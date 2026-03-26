@@ -20,8 +20,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import {
     Activity, Search, Package, Truck, Camera, Route,
-    Settings, Clock, User, ArrowRight, Filter, RefreshCw,
-    CheckCircle2, MapPin, Zap, FileText,
+    RefreshCw, CheckCircle2, MapPin, FileText,
 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────
@@ -87,17 +86,17 @@ export default function ActivityLog({
 
         // 1. Status events
         try {
-            let query = (supabase as any)
+            let eventsQuery = supabase
                 .from("load_status_events")
-                .select("id, load_id, new_status, old_status, note, recorded_at, changed_by")
+                .select("id, load_id, new_status, old_status, note, recorded_at")
                 .order("recorded_at", { ascending: false })
                 .limit(limit);
 
-            if (loadId) query = query.eq("load_id", loadId);
+            if (loadId) eventsQuery = eventsQuery.eq("load_id", loadId);
 
-            const { data: events } = await query as { data: any[] | null };
+            const { data: events, error: eventsError } = await eventsQuery;
 
-            if (events) {
+            if (!eventsError && events) {
                 for (const evt of events) {
                     activities.push({
                         id: `evt-${evt.id}`,
@@ -115,17 +114,17 @@ export default function ActivityLog({
 
         // 2. Recent loads (created)
         try {
-            let query = (supabase as any)
+            let loadsQuery = supabase
                 .from("daily_loads")
                 .select("id, reference_number, client_name, status, created_at, driver_id, updated_at")
                 .order("created_at", { ascending: false })
                 .limit(limit);
 
-            if (loadId) query = query.eq("id", loadId);
+            if (loadId) loadsQuery = loadsQuery.eq("id", loadId);
 
-            const { data: loads } = await query as { data: any[] | null };
+            const { data: loads, error: loadsError } = await loadsQuery;
 
-            if (loads) {
+            if (!loadsError && loads) {
                 for (const load of loads) {
                     activities.push({
                         id: `load-created-${load.id}`,
@@ -152,25 +151,25 @@ export default function ActivityLog({
 
         // 3. Driver shifts
         try {
-            let query = (supabase as any)
+            let shiftsQuery = supabase
                 .from("driver_shifts")
-                .select("id, driver_id, started_at, ended_at")
-                .order("started_at", { ascending: false })
+                .select("id, driver_id, shift_start, shift_end")
+                .order("shift_start", { ascending: false })
                 .limit(20);
 
-            if (driverId) query = query.eq("driver_id", driverId);
+            if (driverId) shiftsQuery = shiftsQuery.eq("driver_id", driverId);
 
-            const { data: shifts } = await query as { data: any[] | null };
+            const { data: shifts, error: shiftsError } = await shiftsQuery;
 
-            if (shifts) {
+            if (!shiftsError && shifts) {
                 for (const shift of shifts) {
                     activities.push({
                         id: `shift-${shift.id}`,
-                        action: shift.ended_at ? "Shift ended" : "Shift started",
+                        action: shift.shift_end ? "Shift ended" : "Shift started",
                         entity_type: "driver",
                         entity_id: shift.driver_id,
-                        details: shift.ended_at ? "Driver went off duty" : "Driver went on duty",
-                        timestamp: shift.ended_at ?? shift.started_at,
+                        details: shift.shift_end ? "Driver went off duty" : "Driver went on duty",
+                        timestamp: shift.shift_end ?? shift.shift_start,
                     });
                 }
             }
@@ -249,7 +248,7 @@ export default function ActivityLog({
                     <p className="text-xs text-muted-foreground text-center py-4">No activity found</p>
                 ) : (
                     <div className={`space-y-0.5 ${compact ? "max-h-48" : "max-h-96"} overflow-y-auto`}>
-                        {filtered.map((entry, i) => {
+                        {filtered.map((entry) => {
                             const meta = getActionMeta(entry.action, entry.entity_type);
                             const Icon = meta.icon;
                             return (

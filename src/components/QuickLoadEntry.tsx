@@ -33,6 +33,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { OrderFormData, generateReference } from "@/lib/quickLoadHelpers";
 import {
     Plus, Package, MapPin, Building2,
     CheckCircle2, RefreshCw, Layers, DollarSign,
@@ -40,66 +41,6 @@ import {
     RotateCw, ChevronDown, ChevronUp,
 } from "lucide-react";
 
-// ─── Reference # generator ────────────────────────────
-
-function generateReference(): string {
-    const d = new Date();
-    const datePart = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-    // Use timestamp + random for better collision resistance at scale
-    const rand = (Date.now() % 100000).toString(36).toUpperCase() +
-        Math.random().toString(36).substring(2, 4).toUpperCase();
-    return `ANK-${datePart}-${rand.slice(0, 5)}`;
-}
-
-// ─── Types ─────────────────────────────────────────────
-
-interface OrderFormData {
-    // Customer
-    client_name: string;
-    requested_by: string;
-    // Collection
-    pickup_address: string;
-    pickup_zone: string;
-    pickup_date: string;
-    pickup_time_from: string;
-    pickup_time_to: string;
-    // Delivery
-    delivery_address: string;
-    delivery_zone: string;
-    delivery_date: string;
-    delivery_time_from: string;
-    delivery_time_to: string;
-    // Details
-    description: string;
-    packages: number;
-    weight_lbs: number;
-    distance_miles: number;
-    dim_length: number;
-    dim_width: number;
-    dim_height: number;
-    // Reference & IDs
-    reference_number: string;
-    purchase_order: string;
-    // Package / Vehicle
-    package_type: string;
-    vehicle_type: string;
-    // Service & Pricing
-    service_type: string;
-    pricing_method: string;
-    base_rate: number;
-    per_mile_rate: number;
-    fuel_surcharge: number;
-    additional_charges: number;
-    total_cost: number;
-    // Customer contact
-    customer_name: string;
-    customer_phone: string;
-    customer_email: string;
-    // Assignment
-    hub: string;
-    // Notes
-    comments: string;
-}
 
 const EMPTY_FORM: OrderFormData = {
     client_name: "",
@@ -220,29 +161,32 @@ export default function QuickLoadEntry({
     useEffect(() => {
         const fetchRecent = async () => {
             const [addrRes, clientRes] = await Promise.all([
-                (supabase as any)
+                supabase
                     .from("daily_loads")
                     .select("delivery_address, pickup_address")
                     .not("delivery_address", "is", null)
                     .order("created_at", { ascending: false })
-                    .limit(80) as Promise<{ data: any[] | null }>,
-                (supabase as any)
+                    .limit(80),
+                supabase
                     .from("daily_loads")
                     .select("client_name")
                     .not("client_name", "is", null)
                     .order("created_at", { ascending: false })
-                    .limit(100) as Promise<{ data: any[] | null }>,
+                    .limit(100),
             ]);
+
+            if (addrRes.error) { console.error("Failed to fetch addresses:", addrRes.error.message); }
+            if (clientRes.error) { console.error("Failed to fetch clients:", clientRes.error.message); }
 
             if (addrRes.data) {
                 const all = [
-                    ...addrRes.data.map((d: any) => d.delivery_address),
-                    ...addrRes.data.map((d: any) => d.pickup_address),
-                ].filter(Boolean);
+                    ...addrRes.data.map((d) => d.delivery_address),
+                    ...addrRes.data.map((d) => d.pickup_address),
+                ].filter((x): x is string => Boolean(x));
                 setRecentAddresses([...new Set(all)]);
             }
             if (clientRes.data) {
-                setClientSuggestions([...new Set(clientRes.data.map((d: any) => d.client_name).filter(Boolean))]);
+                setClientSuggestions([...new Set(clientRes.data.map((d) => d.client_name).filter((x): x is string => Boolean(x)))]);
             }
         };
         fetchRecent();
@@ -268,17 +212,18 @@ export default function QuickLoadEntry({
         }
         const timeout = setTimeout(async () => {
             try {
-                const { data } = await (supabase as any)
+                const { data, error } = await supabase
                     .from("contacts")
-                    .select("email, phone, company")
-                    .ilike("company", `%${form.client_name}%`)
-                    .limit(1) as { data: any[] | null };
+                    .select("email, phone, first_name, last_name")
+                    .or(`first_name.ilike.%${form.client_name}%,last_name.ilike.%${form.client_name}%`)
+                    .limit(1);
+                if (error) { console.error("Failed to fetch contact info:", error.message); return; }
 
                 if (data && data.length > 0) {
                     setClientInfo({
-                        email: data[0].email,
-                        phone: data[0].phone,
-                        address: data[0].company,
+                        email: data[0].email ?? undefined,
+                        phone: data[0].phone ?? undefined,
+                        address: `${data[0].first_name} ${data[0].last_name}`.trim() || undefined,
                     });
                 } else {
                     setClientInfo(null);
@@ -319,7 +264,7 @@ export default function QuickLoadEntry({
         setSaving(true);
         const today = loadDate ?? new Date().toISOString().split("T")[0];
 
-        const payload: Record<string, any> = {
+        const payload = {
             load_date: today,
             reference_number: form.reference_number || null,
             client_name: form.client_name || null,
@@ -943,25 +888,4 @@ export default function QuickLoadEntry({
     );
 }
 
-// ═══════════════════════════════════════════════════════════
-// CLONE HELPER — Generate prefill data from an existing load
-// ═══════════════════════════════════════════════════════════
 
-export function cloneLoadData(existingLoad: Record<string, any>): Partial<OrderFormData> {
-    return {
-        client_name: existingLoad.client_name ?? "",
-        pickup_address: existingLoad.pickup_address ?? "",
-        delivery_address: existingLoad.delivery_address ?? "",
-        customer_name: existingLoad.customer_name ?? "",
-        customer_phone: existingLoad.customer_phone ?? "",
-        packages: existingLoad.packages ?? 1,
-        service_type: existingLoad.service_type ?? "standard",
-        comments: existingLoad.comments ?? "",
-        hub: existingLoad.hub ?? "phoenix",
-        total_cost: existingLoad.revenue ?? 0,
-        base_rate: existingLoad.revenue ?? 0,
-        distance_miles: existingLoad.miles ?? 0,
-        weight_lbs: existingLoad.weight_lbs ?? 0,
-        reference_number: generateReference(),
-    };
-}
