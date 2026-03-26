@@ -168,6 +168,8 @@ export default function DispatchBlastPanel({
             setMessage("");
             setSelectedLoad("");
             setShowCreate(false);
+        } else {
+            console.error("create blast failed: no data returned");
         }
         setSending(false);
     };

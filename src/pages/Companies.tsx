@@ -84,7 +84,11 @@ export default function Companies() {
   const handleDelete = async () => {
     if (!deleteId) return;
     const { error } = await supabase.from("companies").delete().eq("id", deleteId);
-    if (error) { console.error("Failed to delete company:", error.message); return; }
+    if (error) {
+      console.error("Failed to delete company:", error.message);
+      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+      return;
+    }
     setDeleteId(null);
     fetch();
   };

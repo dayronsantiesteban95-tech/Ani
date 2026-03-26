@@ -234,18 +234,17 @@ export default function DispatchTracker() {
             updated_at: new Date().toISOString(),
         };
 
-        const { error } = editLoad
-            ? await db.from("daily_loads").update(payload).eq("id", editLoad.id)
-            : await db.from("daily_loads").insert(payload);
-
-        if (error) {
-            toast({ title: "Error", description: error.message, variant: "destructive" });
+        if (editLoad) {
+            const { error } = await db.from("daily_loads").update(payload).eq("id", editLoad.id);
+            if (error) { console.error("update load failed:", error.message); toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
         } else {
-            toast({ title: editLoad ? "Load updated" : "Load added" });
-            setDialogOpen(false);
-            setEditLoad(null);
-            fetchLoads();
+            const { error } = await db.from("daily_loads").insert(payload);
+            if (error) { console.error("insert load failed:", error.message); toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
         }
+        toast({ title: editLoad ? "Load updated" : "Load added" });
+        setDialogOpen(false);
+        setEditLoad(null);
+        fetchLoads();
     };
 
     const handleDelete = async () => {

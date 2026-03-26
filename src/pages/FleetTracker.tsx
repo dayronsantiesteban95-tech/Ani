@@ -112,6 +112,9 @@ export default function FleetTracker() {
             supabase.from("vehicle_maintenance").select("*").order("service_date", { ascending: false }),
             supabase.from("drivers").select("*").order("full_name"),
         ]);
+        if (v.error) console.error("fetch vehicles failed:", v.error.message);
+        if (m.error) console.error("fetch vehicle_maintenance failed:", m.error.message);
+        if (d.error) console.error("fetch drivers failed:", d.error.message);
         if (v.data) setVehicles(v.data);
         if (m.data) setMaintenance(m.data);
         if (d.data) setDrivers(d.data);
@@ -163,11 +166,14 @@ export default function FleetTracker() {
             updated_at: new Date().toISOString(),
             ...(editVeh ? {} : { created_by: user!.id }),
         };
-        const { error } = editVeh
-            ? await supabase.from("vehicles").update(payload).eq("id", editVeh.id)
-            : await supabase.from("vehicles").insert(payload);
-        if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-        else { toast({ title: editVeh ? "Vehicle updated" : "Vehicle added" }); setVehDialog(false); setEditVeh(null); fetchAll(); }
+        if (editVeh) {
+            const { error } = await supabase.from("vehicles").update(payload).eq("id", editVeh.id);
+            if (error) { console.error("update vehicle failed:", error.message); toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+        } else {
+            const { error } = await supabase.from("vehicles").insert(payload);
+            if (error) { console.error("insert vehicle failed:", error.message); toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+        }
+        toast({ title: editVeh ? "Vehicle updated" : "Vehicle added" }); setVehDialog(false); setEditVeh(null); fetchAll();
     };
 
     // ── Maintenance CRUD ─────────────────────
@@ -187,11 +193,14 @@ export default function FleetTracker() {
             notes: fd.get("notes") as string || null,
             ...(editMaint ? {} : { created_by: user!.id }),
         };
-        const { error } = editMaint
-            ? await supabase.from("vehicle_maintenance").update(payload).eq("id", editMaint.id)
-            : await supabase.from("vehicle_maintenance").insert(payload);
-        if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-        else { toast({ title: editMaint ? "Record updated" : "Maintenance logged" }); setMaintDialog(false); setEditMaint(null); fetchAll(); }
+        if (editMaint) {
+            const { error } = await supabase.from("vehicle_maintenance").update(payload).eq("id", editMaint.id);
+            if (error) { console.error("update maintenance failed:", error.message); toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+        } else {
+            const { error } = await supabase.from("vehicle_maintenance").insert(payload);
+            if (error) { console.error("insert maintenance failed:", error.message); toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+        }
+        toast({ title: editMaint ? "Record updated" : "Maintenance logged" }); setMaintDialog(false); setEditMaint(null); fetchAll();
     };
 
     // ── Driver CRUD ──────────────────────────
@@ -212,11 +221,14 @@ export default function FleetTracker() {
             updated_at: new Date().toISOString(),
             ...(editDrv ? {} : { created_by: user!.id }),
         };
-        const { error } = editDrv
-            ? await supabase.from("drivers").update(payload).eq("id", editDrv.id)
-            : await supabase.from("drivers").insert(payload);
-        if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-        else { toast({ title: editDrv ? "Driver updated" : "Driver added" }); setDrvDialog(false); setEditDrv(null); fetchAll(); }
+        if (editDrv) {
+            const { error } = await supabase.from("drivers").update(payload).eq("id", editDrv.id);
+            if (error) { console.error("update driver failed:", error.message); toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+        } else {
+            const { error } = await supabase.from("drivers").insert(payload);
+            if (error) { console.error("insert driver failed:", error.message); toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+        }
+        toast({ title: editDrv ? "Driver updated" : "Driver added" }); setDrvDialog(false); setEditDrv(null); fetchAll();
     };
 
     // ── Delete ───────────────────────────────

@@ -272,7 +272,8 @@ export default function PodManager() {
 
     // ── Delete Document ──────────────────────────────
     const handleDeleteDoc = async (doc: LoadDocument) => {
-        await supabase.storage.from(STORAGE_BUCKET).remove([doc.file_path]);
+        const { error: storageError } = await supabase.storage.from(STORAGE_BUCKET).remove([doc.file_path]);
+        if (storageError) console.error("delete storage file failed:", storageError.message);
         const { error } = await supabase.from("load_documents").delete().eq("id", doc.id);
         if (error) { console.error("delete load_documents failed:", error.message); return; }
         toast({ title: "Document deleted" });

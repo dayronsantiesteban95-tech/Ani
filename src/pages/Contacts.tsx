@@ -92,7 +92,11 @@ export default function Contacts() {
   const handleDelete = async () => {
     if (!deleteId) return;
     const { error } = await supabase.from("contacts").delete().eq("id", deleteId);
-    if (error) { console.error("Failed to delete contact:", error.message); return; }
+    if (error) {
+      console.error("Failed to delete contact:", error.message);
+      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+      return;
+    }
     setDeleteId(null);
     fetch();
   };

@@ -19,7 +19,8 @@ export function useUserRole() {
       .select("role")
       .eq("user_id", user.id)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) { console.error("fetch user role failed:", error.message); setLoading(false); return; }
         setRole((data?.role as "owner" | "dispatcher") ?? null);
         setLoading(false);
       });
