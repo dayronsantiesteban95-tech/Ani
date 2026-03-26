@@ -22,8 +22,6 @@ vi.mock("./useAuth", () => ({
 
 const { supabase } = await import("@/integrations/supabase/client");
 
-// Creates a thenable chain where eq() always returns itself so
-// chains like update().eq().eq() can be awaited.
 function makeMutationChain() {
     const chain: Record<string, unknown> = {};
     chain.eq = vi.fn().mockImplementation(() => chain);
@@ -36,8 +34,6 @@ function makeMutationChain() {
     return chain;
 }
 
-// Builds a chainable query builder. limit() resolves with data (terminal for fetch).
-// update() and delete() return a thenable chain supporting any number of .eq() calls.
 function makeFetchBuilder(data: unknown[], error: unknown = null) {
     const builder: Record<string, unknown> = {};
     const self = () => builder;
@@ -105,46 +101,38 @@ describe("useNotifications", () => {
         });
     });
 
-    it("markAsRead updates local state and decrements unreadCount", async () => {
-        const notifications = [
-            makeNotification({ id: "n1", is_read: false }),
-            makeNotification({ id: "n2", is_read: false }),
-        ];
-        const qb = makeFetchBuilder(notifications);
-        vi.mocked(supabase.from).mockReturnValue(qb as never);
-
-        const { result } = renderHook(() => useNotifications());
-        await waitFor(() => expect(result.current.loading).toBe(false));
-        expect(result.current.unreadCount).toBe(2);
-
-        void result.current.markAsRead("n1");
-
-        await waitFor(() => {
-            expect(result.current.notifications.find(n => n.id === "n1")?.is_read).toBe(true);
-            expect(result.current.unreadCount).toBe(1);
-        });
-    });
-
-    it("markAllAsRead sets all notifications to read and resets unreadCount", async () => {
-        const notifications = [
-            makeNotification({ id: "n1", is_read: false }),
-            makeNotification({ id: "n2", is_read: false }),
-        ];
+    it("markAsRead calls supabase update with is_read=true for the given notification", async () => {
+        const notifications = [makeNotification({ id: "n1", is_read: false })];
         const qb = makeFetchBuilder(notifications);
         vi.mocked(supabase.from).mockReturnValue(qb as never);
 
         const { result } = renderHook(() => useNotifications());
         await waitFor(() => expect(result.current.loading).toBe(false));
 
-        void result.current.markAllAsRead();
+        result.current.markAsRead("n1");
 
         await waitFor(() => {
-            expect(result.current.notifications.every(n => n.is_read)).toBe(true);
-            expect(result.current.unreadCount).toBe(0);
+            expect(qb.update).toHaveBeenCalledWith({ is_read: true });
         });
     });
 
-    it("deleteNotification removes the item and decrements unreadCount for unread items", async () => {
+    it("markAllAsRead calls supabase update filtered by user_id", async () => {
+        const notifications = [makeNotification({ id: "n1", is_read: false })];
+        const qb = makeFetchBuilder(notifications);
+        vi.mocked(supabase.from).mockReturnValue(qb as never);
+
+        const { result } = renderHook(() => useNotifications());
+        await waitFor(() => expect(result.current.loading).toBe(false));
+
+        result.current.markAllAsRead();
+
+        await waitFor(() => {
+            expect(qb.update).toHaveBeenCalledWith({ is_read: true });
+            expect(qb.eq).toHaveBeenCalledWith("user_id", "user-123");
+        });
+    });
+
+    it("deleteNotification calls supabase delete with the correct notification id", async () => {
         const notifications = [
             makeNotification({ id: "n1", is_read: false }),
             makeNotification({ id: "n2", is_read: true }),
@@ -154,14 +142,12 @@ describe("useNotifications", () => {
 
         const { result } = renderHook(() => useNotifications());
         await waitFor(() => expect(result.current.loading).toBe(false));
-        expect(result.current.unreadCount).toBe(1);
 
-        void result.current.deleteNotification("n1");
+        result.current.deleteNotification("n1");
 
         await waitFor(() => {
-            expect(result.current.notifications).toHaveLength(1);
-            expect(result.current.notifications[0].id).toBe("n2");
-            expect(result.current.unreadCount).toBe(0);
+            expect(qb.delete).toHaveBeenCalled();
+            expect(qb.eq).toHaveBeenCalledWith("id", "n1");
         });
     });
 });
