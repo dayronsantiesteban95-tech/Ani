@@ -156,26 +156,30 @@ export default function DispatchTracker() {
 
     // ── Fetch helpers ────────────────────────
     const fetchLoads = useCallback(async () => {
-        const { data } = await db.from("daily_loads")
+        const { data, error } = await db.from("daily_loads")
             .select("*")
             .gte("load_date", dateRangeStart)
             .lte("load_date", dateRangeEnd)
             .order("load_date", { ascending: false });
+        if (error) console.error("Failed to fetch loads:", error.message);
         if (data) setLoads(data);
     }, [dateRangeStart, dateRangeEnd]);
 
     const fetchDrivers = useCallback(async () => {
-        const { data } = await db.from("drivers").select("id, full_name, hub, status").eq("status", "active");
+        const { data, error } = await db.from("drivers").select("id, full_name, hub, status").eq("status", "active");
+        if (error) console.error("Failed to fetch drivers:", error.message);
         if (data) setDrivers(data);
     }, []);
 
     const fetchVehicles = useCallback(async () => {
-        const { data } = await db.from("vehicles").select("id, vehicle_name, vehicle_type, hub, status").eq("status", "active");
+        const { data, error } = await db.from("vehicles").select("id, vehicle_name, vehicle_type, hub, status").eq("status", "active");
+        if (error) console.error("Failed to fetch vehicles:", error.message);
         if (data) setVehicles(data);
     }, []);
 
     const fetchProfiles = useCallback(async () => {
-        const { data } = await supabase.from("profiles").select("user_id, full_name");
+        const { data, error } = await supabase.from("profiles").select("user_id, full_name");
+        if (error) console.error("Failed to fetch profiles:", error.message);
         if (data) setProfiles(data as Profile[]);
     }, []);
 

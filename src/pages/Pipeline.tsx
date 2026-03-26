@@ -104,18 +104,21 @@ export default function Pipeline() {
   const { toast } = useToast();
 
   const fetchLeads = useCallback(async () => {
-    const { data } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
+    if (error) { console.error("Failed to fetch leads:", error.message); }
     if (data) setLeads(data as Lead[]);
     setLoading(false);
   }, []);
 
   const fetchLastContacts = useCallback(async () => {
-    const { data } = await supabase.rpc("get_last_contacts");
+    const { data, error: rpcError } = await supabase.rpc("get_last_contacts");
+    if (rpcError) { console.error("Failed to fetch last contacts via rpc:", rpcError.message); }
     if (!data) {
-      const { data: interactions } = await supabase
+      const { data: interactions, error: interactionsError } = await supabase
         .from("lead_interactions")
         .select("lead_id, created_at")
         .order("created_at", { ascending: false });
+      if (interactionsError) { console.error("Failed to fetch lead interactions:", interactionsError.message); }
       if (interactions) {
         const map: Record<string, string> = {};
         for (const i of interactions) {
@@ -149,7 +152,8 @@ export default function Pipeline() {
 
   const handleDrop = async (stage: string) => {
     if (!draggedId) return;
-    await supabase.from("leads").update({ stage: stage as Database["public"]["Enums"]["lead_stage"] }).eq("id", draggedId);
+    const { error } = await supabase.from("leads").update({ stage: stage as Database["public"]["Enums"]["lead_stage"] }).eq("id", draggedId);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); }
     setDraggedId(null);
     fetchLeads();
   };
@@ -217,7 +221,8 @@ export default function Pipeline() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    await supabase.from("leads").delete().eq("id", deleteId);
+    const { error } = await supabase.from("leads").delete().eq("id", deleteId);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); }
     setDeleteId(null);
     if (selectedLead?.id === deleteId) setSelectedLead(null);
     fetchLeads();

@@ -59,19 +59,21 @@ export default function TaskBoard() {
   const { toast } = useToast();
 
   const fetchTasks = useCallback(async () => {
-    const [{ data: tasksData }, { data: linksData }] = await Promise.all([
+    const [tasksRes, linksRes] = await Promise.all([
       supabase.from("tasks").select("*").order("created_at", { ascending: false }),
       supabase.from("task_lead_links").select("task_id, lead_id, leads(company_name)"),
     ]);
-    if (tasksData) setTasks(tasksData as Task[]);
-    if (linksData) setTaskLeadLinks(linksData as TaskLeadLink[]);
+    if (tasksRes.error) console.error("Failed to fetch tasks:", tasksRes.error.message);
+    if (linksRes.error) console.error("Failed to fetch task-lead links:", linksRes.error.message);
+    if (tasksRes.data) setTasks(tasksRes.data as Task[]);
+    if (linksRes.data) setTaskLeadLinks(linksRes.data as TaskLeadLink[]);
     setLoading(false);
   }, []);
 
   useEffect(() => {
     fetchTasks();
-    supabase.from("profiles").select("user_id, full_name").then(({ data }) => { if (data) setProfiles(data); });
-    supabase.from("leads").select("id, company_name").then(({ data }) => { if (data) setLeads(data); });
+    supabase.from("profiles").select("user_id, full_name").then(({ data, error }) => { if (error) { console.error("Failed to fetch profiles:", error.message); return; } if (data) setProfiles(data); });
+    supabase.from("leads").select("id, company_name").then(({ data, error }) => { if (error) { console.error("Failed to fetch leads:", error.message); return; } if (data) setLeads(data); });
   }, [fetchTasks]);
 
   useEffect(() => {
@@ -91,7 +93,8 @@ export default function TaskBoard() {
 
   const handleDrop = async (status: "todo" | "in_progress" | "done") => {
     if (!draggedId) return;
-    await supabase.from("tasks").update({ status }).eq("id", draggedId);
+    const { error } = await supabase.from("tasks").update({ status }).eq("id", draggedId);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); }
     setDraggedId(null);
   };
 
@@ -143,7 +146,8 @@ export default function TaskBoard() {
       else {
         const leadId = fd.get("linked_lead") as string;
         if (leadId && newTask) {
-          await supabase.from("task_lead_links").insert({ task_id: newTask.id, lead_id: leadId });
+          const { error: linkError } = await supabase.from("task_lead_links").insert({ task_id: newTask.id, lead_id: leadId });
+          if (linkError) console.error("Failed to link task to lead:", linkError.message);
         }
         const assigneeName = payload.assigned_to ? profiles.find(p => p.user_id === payload.assigned_to)?.full_name : null;
         if (assigneeName && payload.assigned_to !== user.id) {
@@ -157,7 +161,8 @@ export default function TaskBoard() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    await supabase.from("tasks").delete().eq("id", deleteId);
+    const { error } = await supabase.from("tasks").delete().eq("id", deleteId);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); }
     setDeleteId(null);
     fetchTasks();
   };

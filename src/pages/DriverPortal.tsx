@@ -115,12 +115,13 @@ export default function DriverPortal() {
             if (!profileError && data) {
                 setDriver(data as DriverProfile);
                 // Check for active shift
-                const { data: shift } = await supabase
+                const { data: shift, error: shiftError } = await supabase
                     .from("driver_shifts")
                     .select("id")
                     .eq("driver_id", data.id)
                     .is("shift_end", null)
                     .single();
+                if (shiftError && shiftError.code !== "PGRST116") console.error("Failed to fetch active shift:", shiftError.message);
                 if (shift) {
                     setShiftId(shift.id);
                     setOnDuty(true);
@@ -183,12 +184,13 @@ export default function DriverPortal() {
         } else {
             // Go off duty
             if (shiftId) {
-                await supabase.from("driver_shifts").update({
+                const { error: endShiftError } = await supabase.from("driver_shifts").update({
                     shift_end: new Date().toISOString(),
                     status: "off_duty",
                     end_lat: gps.position?.latitude,
                     end_lng: gps.position?.longitude,
                 }).eq("id", shiftId);
+                if (endShiftError) console.error("Failed to end shift:", endShiftError.message);
             }
             gps.stopTracking();
             setOnDuty(false);
@@ -223,7 +225,7 @@ export default function DriverPortal() {
         }
 
         // Log the status event with GPS
-        await supabase.from("load_status_events").insert({
+        const { error: eventError } = await supabase.from("load_status_events").insert({
             load_id: load.id,
             driver_id: driver.id,
             old_status: load.status,
@@ -232,6 +234,7 @@ export default function DriverPortal() {
             longitude: gps.position?.longitude,
             note: statusNote || null,
         });
+        if (eventError) console.error("Failed to log status event:", eventError.message);
 
         setStatusNote("");
         setUpdatingLoadId(null);
@@ -448,7 +451,8 @@ export default function DriverPortal() {
                                                             if (uploadErr) {
                                                                 toast({ title: "Upload failed", description: uploadErr.message, variant: "destructive" });
                                                             } else {
-                                                                await supabase.from("daily_loads").update({ pod_confirmed: true }).eq("id", load.id);
+                                                                const { error: podError } = await supabase.from("daily_loads").update({ pod_confirmed: true }).eq("id", load.id);
+                                                                if (podError) console.error("Failed to confirm POD:", podError.message);
                                                                 toast({ title: "📸 POD captured!", description: "Photo uploaded successfully." });
                                                                 fetchLoads();
                                                             }

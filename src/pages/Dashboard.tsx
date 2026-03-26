@@ -85,6 +85,12 @@ export default function Dashboard() {
         supabase.from("companies").select("id", { count: "exact", head: true }),
         supabase.from("contacts").select("id", { count: "exact", head: true }),
       ]);
+      if (leadsRes.error) console.error("Failed to fetch leads count:", leadsRes.error.message);
+      if (tasksTodayRes.error) console.error("Failed to fetch tasks due today:", tasksTodayRes.error.message);
+      if (overdueRes.error) console.error("Failed to fetch overdue leads:", overdueRes.error.message);
+      if (wonRes.error) console.error("Failed to fetch won accounts:", wonRes.error.message);
+      if (companiesRes.error) console.error("Failed to fetch companies count:", companiesRes.error.message);
+      if (contactsRes.error) console.error("Failed to fetch contacts count:", contactsRes.error.message);
       setStats({
         leads: leadsRes.count ?? 0,
         tasksDueToday: tasksTodayRes.count ?? 0,
@@ -94,7 +100,8 @@ export default function Dashboard() {
         contacts: contactsRes.count ?? 0,
       });
 
-      const { data: allLeads } = await supabase.from("leads").select("stage");
+      const { data: allLeads, error: allLeadsError } = await supabase.from("leads").select("stage");
+      if (allLeadsError) { console.error("Failed to fetch lead stages:", allLeadsError.message); }
       const counts: Record<string, number> = {};
       LEAD_STAGES.forEach((s) => (counts[s.value] = 0));
       allLeads?.forEach((l) => { counts[l.stage] = (counts[l.stage] || 0) + 1; });
@@ -106,7 +113,8 @@ export default function Dashboard() {
         .order("created_at", { ascending: false })
         .limit(8);
       if (!isOwner) activityQuery = activityQuery.eq("created_by", userId);
-      const { data: activity } = await activityQuery;
+      const { data: activity, error: activityError } = await activityQuery;
+      if (activityError) { console.error("Failed to fetch recent activity:", activityError.message); }
       if (activity) setRecentActivity(activity);
 
       let tasksQuery = supabase
@@ -117,12 +125,14 @@ export default function Dashboard() {
         .order("due_date", { ascending: true })
         .limit(5);
       if (!isOwner) tasksQuery = tasksQuery.eq("assigned_to", userId);
-      const { data: tasks } = await tasksQuery;
+      const { data: tasks, error: tasksError } = await tasksQuery;
+      if (tasksError) { console.error("Failed to fetch upcoming tasks:", tasksError.message); }
       if (tasks) setUpcomingTasks(tasks);
 
       let allTasksQuery = supabase.from("tasks").select("status");
       if (!isOwner) allTasksQuery = allTasksQuery.eq("assigned_to", userId);
-      const { data: allTasks } = await allTasksQuery;
+      const { data: allTasks, error: allTasksError } = await allTasksQuery;
+      if (allTasksError) { console.error("Failed to fetch task statuses:", allTasksError.message); }
       const statusCounts: Record<string, number> = {};
       TASK_STATUSES.forEach((s) => (statusCounts[s.value] = 0));
       allTasks?.forEach((t) => { statusCounts[t.status] = (statusCounts[t.status] || 0) + 1; });
@@ -134,6 +144,8 @@ export default function Dashboard() {
         db.from("daily_loads").select("*").eq("load_date", today),
         db.from("drivers").select("id, full_name"),
       ]);
+      if (loadsRes.error) console.error("Failed to fetch today's loads:", loadsRes.error.message);
+      if (driversRes.error) console.error("Failed to fetch drivers:", driversRes.error.message);
       if (loadsRes.data) setTodayLoads(loadsRes.data);
       if (driversRes.data) setDrivers(driversRes.data);
 
