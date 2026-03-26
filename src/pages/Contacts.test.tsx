@@ -82,4 +82,24 @@ describe("Contacts", () => {
     const emptyText = await screen.findByText(/no contacts/i, {}, { timeout: 3000 });
     expect(emptyText).toBeInTheDocument();
   });
+
+  it("renders contacts when data is provided", async () => {
+    const contacts = [
+      { id: "ct1", first_name: "John", last_name: "Smith", email: "john@test.com", phone: "555-1234", company_id: "c1", job_title: "Manager", notes: null, created_at: "2026-01-01T00:00:00Z" },
+      { id: "ct2", first_name: "Jane", last_name: "Doe", email: "jane@test.com", phone: null, company_id: null, job_title: null, notes: null, created_at: "2026-02-01T00:00:00Z" },
+    ];
+    const companies = [
+      { id: "c1", name: "Acme Corp" },
+    ];
+
+    const { supabase } = await import("@/integrations/supabase/client");
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "contacts") return makeQb({ data: contacts, error: null });
+      if (table === "companies") return makeQb({ data: companies, error: null });
+      return makeQb();
+    });
+
+    render(<Contacts />);
+    expect(await screen.findByText(/John/, {}, { timeout: 3000 })).toBeInTheDocument();
+  });
 });

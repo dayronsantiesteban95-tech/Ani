@@ -250,4 +250,186 @@ describe("exportToCSV edge cases", () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
+
+  it("handles values with newlines by wrapping in quotes", () => {
+    const mockClick = vi.fn();
+    vi.spyOn(document, "createElement").mockReturnValue({
+      href: "", download: "", click: mockClick,
+    } as unknown as HTMLAnchorElement);
+    vi.stubGlobal("URL", { createObjectURL: vi.fn().mockReturnValue("blob:test"), revokeObjectURL: vi.fn() });
+
+    expect(() => exportToCSV([{ note: "line1\nline2" }], "test.csv")).not.toThrow();
+
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("handles null and undefined values", () => {
+    const mockClick = vi.fn();
+    vi.spyOn(document, "createElement").mockReturnValue({
+      href: "", download: "", click: mockClick,
+    } as unknown as HTMLAnchorElement);
+    vi.stubGlobal("URL", { createObjectURL: vi.fn().mockReturnValue("blob:test"), revokeObjectURL: vi.fn() });
+
+    expect(() => exportToCSV([{ name: null, value: undefined } as any], "test.csv")).not.toThrow();
+
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+});
+
+// ── getAnikaTemplates ──
+
+import { getAnikaTemplates } from "@/lib/anikaTemplates";
+
+describe("getAnikaTemplates", () => {
+  it("returns templates for all 3 hubs", () => {
+    const templates = getAnikaTemplates();
+    const hubs = [...new Set(templates.map(t => t.hub))];
+    expect(hubs).toContain("atlanta");
+    expect(hubs).toContain("phoenix");
+    expect(hubs).toContain("la");
+  });
+
+  it("returns 45 total templates (15 unique x 3 hubs)", () => {
+    const templates = getAnikaTemplates();
+    expect(templates).toHaveLength(45);
+  });
+
+  it("each template has name, hub, step_type, subject, and body", () => {
+    const templates = getAnikaTemplates();
+    for (const t of templates) {
+      expect(t.name).toBeTruthy();
+      expect(t.hub).toBeTruthy();
+      expect(t.step_type).toBeTruthy();
+      expect(t.subject).toBeTruthy();
+      expect(t.body).toBeTruthy();
+    }
+  });
+
+  it("templates include all step types: email_1, email_2, call", () => {
+    const templates = getAnikaTemplates();
+    const stepTypes = [...new Set(templates.map(t => t.step_type))];
+    expect(stepTypes).toContain("email_1");
+    expect(stepTypes).toContain("email_2");
+    expect(stepTypes).toContain("call");
+  });
+
+  it("each hub has the same number of templates", () => {
+    const templates = getAnikaTemplates();
+    const atlantaCount = templates.filter(t => t.hub === "atlanta").length;
+    const phoenixCount = templates.filter(t => t.hub === "phoenix").length;
+    const laCount = templates.filter(t => t.hub === "la").length;
+    expect(atlantaCount).toBe(15);
+    expect(phoenixCount).toBe(15);
+    expect(laCount).toBe(15);
+  });
+
+  it("templates have unique names within each hub", () => {
+    const templates = getAnikaTemplates();
+    for (const hub of ["atlanta", "phoenix", "la"]) {
+      const names = templates.filter(t => t.hub === hub).map(t => t.name);
+      expect(new Set(names).size).toBe(names.length);
+    }
+  });
+
+  it("email_1 templates include 5 per hub", () => {
+    const templates = getAnikaTemplates();
+    for (const hub of ["atlanta", "phoenix", "la"]) {
+      const email1s = templates.filter(t => t.hub === hub && t.step_type === "email_1");
+      expect(email1s.length).toBe(5);
+    }
+  });
+
+  it("email_2 templates include 5 per hub", () => {
+    const templates = getAnikaTemplates();
+    for (const hub of ["atlanta", "phoenix", "la"]) {
+      const email2s = templates.filter(t => t.hub === hub && t.step_type === "email_2");
+      expect(email2s.length).toBe(5);
+    }
+  });
+
+  it("call templates include 5 per hub", () => {
+    const templates = getAnikaTemplates();
+    for (const hub of ["atlanta", "phoenix", "la"]) {
+      const calls = templates.filter(t => t.hub === hub && t.step_type === "call");
+      expect(calls.length).toBe(5);
+    }
+  });
+
+  it("subjects contain placeholder variables", () => {
+    const templates = getAnikaTemplates();
+    const hasPlaceholders = templates.some(t => t.subject.includes("[") || t.body.includes("["));
+    expect(hasPlaceholders).toBe(true);
+  });
+
+  it("bodies are non-empty strings with meaningful content", () => {
+    const templates = getAnikaTemplates();
+    for (const t of templates) {
+      expect(t.body.length).toBeGreaterThan(50);
+    }
+  });
+});
+
+// ── Additional sequenceUtils branch tests ──
+
+describe("assignHub additional branches", () => {
+  it("returns atlanta for FL state", () => {
+    expect(assignHub("FL")).toBe("atlanta");
+  });
+
+  it("returns phoenix for TX state", () => {
+    expect(assignHub("TX")).toBe("phoenix");
+  });
+
+  it("returns la for WA state", () => {
+    expect(assignHub("WA")).toBe("la");
+  });
+
+  it("returns la for Seattle city", () => {
+    expect(assignHub(null, "Seattle")).toBe("la");
+  });
+
+  it("returns phoenix for Denver city", () => {
+    expect(assignHub(null, "Denver")).toBe("phoenix");
+  });
+
+  it("returns atlanta for Miami city", () => {
+    expect(assignHub(null, "Miami")).toBe("atlanta");
+  });
+
+  it("handles null state and null city", () => {
+    expect(assignHub(null, null)).toBe("phoenix");
+  });
+
+  it("handles empty string state", () => {
+    expect(assignHub("")).toBe("phoenix");
+  });
+
+  it("handles empty string city", () => {
+    expect(assignHub(null, "")).toBe("phoenix");
+  });
+
+  it("city lookup is case insensitive", () => {
+    expect(assignHub(null, "LOS ANGELES")).toBe("la");
+    expect(assignHub(null, "los angeles")).toBe("la");
+    expect(assignHub(null, "Los Angeles")).toBe("la");
+  });
+
+  it("city with whitespace is trimmed", () => {
+    expect(assignHub(null, " phoenix ")).toBe("phoenix");
+  });
+
+  it("city overrides state when both provided", () => {
+    expect(assignHub("CA", "Atlanta")).toBe("atlanta");
+    expect(assignHub("FL", "Phoenix")).toBe("phoenix");
+  });
+
+  it("unknown city falls back to state", () => {
+    expect(assignHub("CA", "UnknownCity")).toBe("la");
+  });
+
+  it("unknown city and unknown state returns phoenix default", () => {
+    expect(assignHub("ZZ", "UnknownCity")).toBe("phoenix");
+  });
 });

@@ -82,4 +82,40 @@ describe("Companies", () => {
     const emptyText = await screen.findByText(/No companies found/i, {}, { timeout: 3000 });
     expect(emptyText).toBeInTheDocument();
   });
+
+  it("renders companies when data is provided", async () => {
+    const companies = [
+      { id: "c1", name: "Test Corp", industry: "legal", city: "Atlanta", state: "GA", hub: "atlanta", website: "https://test.com", notes: null, created_at: "2026-01-01T00:00:00Z", lead_count: 3 },
+      { id: "c2", name: "Another Inc", industry: "medical_pharma", city: "Phoenix", state: "AZ", hub: "phoenix", website: null, notes: "Good company", created_at: "2026-02-01T00:00:00Z", lead_count: 0 },
+    ];
+
+    const { supabase } = await import("@/integrations/supabase/client");
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "companies") return makeQb({ data: companies, error: null });
+      return makeQb();
+    });
+
+    render(<Companies />);
+    expect(await screen.findByText("Test Corp", {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByText("Another Inc")).toBeInTheDocument();
+  });
+
+  it("renders search filtering", async () => {
+    const companies = [
+      { id: "c1", name: "Findable Corp", industry: "legal", city: "Atlanta", state: "GA", hub: "atlanta", website: null, notes: null, created_at: "2026-01-01T00:00:00Z", lead_count: 1 },
+    ];
+
+    const { supabase } = await import("@/integrations/supabase/client");
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "companies") return makeQb({ data: companies, error: null });
+      return makeQb();
+    });
+
+    render(<Companies />);
+    await screen.findByText("Findable Corp", {}, { timeout: 3000 });
+    const input = screen.getByPlaceholderText("Search companies...");
+    const { fireEvent } = await import("@testing-library/react");
+    fireEvent.change(input, { target: { value: "Findable" } });
+    expect(screen.getByText("Findable Corp")).toBeInTheDocument();
+  });
 });

@@ -97,4 +97,17 @@ describe("DispatchTracker", () => {
     await screen.findByText("Dispatch Tracker");
     expect(container.innerHTML.length).toBeGreaterThan(200);
   });
+
+  it("renders the subtitle text", async () => {
+    render(<DispatchTracker />);
+    await screen.findByText("Dispatch Tracker");
+    expect(screen.getByText(/Daily load tracking/i)).toBeInTheDocument();
+  });
+
+  it("renders the hub filter buttons", async () => {
+    render(<DispatchTracker />);
+    await screen.findByText("Dispatch Tracker");
+    const allButtons = screen.getAllByRole("button");
+    expect(allButtons.length).toBeGreaterThan(3);
+  });
 });

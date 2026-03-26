@@ -91,4 +91,15 @@ describe("LeadFinder", () => {
     render(<LeadFinder />);
     expect(screen.getByText("Search for Leads")).toBeInTheDocument();
   });
+
+  it("renders the page with content", () => {
+    const { container } = render(<LeadFinder />);
+    expect(container.innerHTML.length).toBeGreaterThan(200);
+  });
+
+  it("renders multiple UI elements on the page", () => {
+    render(<LeadFinder />);
+    const buttons = screen.getAllByRole("button");
+    expect(buttons.length).toBeGreaterThan(0);
+  });
 });

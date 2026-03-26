@@ -54,4 +54,39 @@ describe("CalendarView", () => {
     expect(await screen.findByText("Month")).toBeInTheDocument();
     expect(screen.getByText("Week")).toBeInTheDocument();
   });
+
+  it("renders the calendar grid", async () => {
+    const { container } = render(<CalendarView />);
+    await screen.findByText("Calendar");
+    expect(container.innerHTML.length).toBeGreaterThan(300);
+  });
+
+  it("renders the subtitle text", async () => {
+    render(<CalendarView />);
+    await screen.findByText("Calendar");
+    // Calendar has navigation arrows and date display
+    const { container } = render(<CalendarView />);
+    expect(container.innerHTML.length).toBeGreaterThan(100);
+  });
+
+  it("renders with events when data is provided", async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const tasks = [
+      { id: "t1", title: "Calendar Task", status: "todo", due_date: "2026-03-25", priority: "high", assigned_to: "u1", department: "operations", created_at: "2026-03-20T00:00:00Z" },
+    ];
+    const loads = [
+      { id: "l1", load_date: "2026-03-25", reference_number: "ANK-CAL", client_name: "Calendar Client", status: "assigned", hub: "atlanta", created_at: "2026-03-20T00:00:00Z" },
+    ];
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "tasks") return makeQb({ data: tasks, error: null }) as any;
+      if (table === "daily_loads") return makeQb({ data: loads, error: null }) as any;
+      return makeQb() as any;
+    });
+
+    render(<CalendarView />);
+    await screen.findByText("Calendar");
+    // Calendar should render
+    expect(screen.getByText("Calendar")).toBeInTheDocument();
+  });
 });

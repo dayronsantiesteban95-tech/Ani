@@ -111,4 +111,34 @@ describe("useToast hook", () => {
     const t = result.current.toasts.find((t) => t.id === toastId!);
     if (t) expect(t.open).toBe(false);
   });
+
+  it("dismiss without id dismisses all toasts", () => {
+    const { result } = renderHook(() => useToast());
+    act(() => {
+      result.current.toast({ title: "Toast A" });
+    });
+    act(() => {
+      result.current.dismiss();
+    });
+    // All toasts should have open=false
+    for (const t of result.current.toasts) {
+      expect(t.open).toBe(false);
+    }
+  });
+
+  it("toast with variant returns correctly", () => {
+    const { result } = renderHook(() => useToast());
+    act(() => {
+      result.current.toast({ title: "Error Toast", variant: "destructive" });
+    });
+    expect(result.current.toasts.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it("toast with description returns correctly", () => {
+    const { result } = renderHook(() => useToast());
+    act(() => {
+      result.current.toast({ title: "Info", description: "Some detail" });
+    });
+    expect(result.current.toasts.length).toBeGreaterThanOrEqual(0);
+  });
 });

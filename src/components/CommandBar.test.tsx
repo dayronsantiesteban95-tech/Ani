@@ -91,4 +91,52 @@ describe("CommandBar", () => {
 
     expect(screen.queryByPlaceholderText(/search loads, drivers/i)).not.toBeInTheDocument();
   });
+
+  it("opens with Meta+K (Mac shortcut)", () => {
+    renderCommandBar();
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    expect(screen.getByPlaceholderText(/search loads, drivers/i)).toBeInTheDocument();
+  });
+
+  it("displays quick action 'Go to Live Ops' when open", () => {
+    renderCommandBar();
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    expect(screen.getByText("Go to Live Ops")).toBeInTheDocument();
+  });
+
+  it("displays the 'Create new load' quick action", () => {
+    renderCommandBar();
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    expect(screen.getByText("Create new load")).toBeInTheDocument();
+  });
+
+  it("shows search results when query matches page names", async () => {
+    renderCommandBar();
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    const input = screen.getByPlaceholderText(/search loads, drivers/i);
+    fireEvent.change(input, { target: { value: "dashboard" } });
+    await waitFor(() => {
+      expect(screen.getByText(/Dashboard/i)).toBeInTheDocument();
+    }, { timeout: 500 });
+  });
+
+  it("shows import loads action when searching 'import'", async () => {
+    renderCommandBar();
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    const input = screen.getByPlaceholderText(/search loads, drivers/i);
+    fireEvent.change(input, { target: { value: "import" } });
+    await waitFor(() => {
+      expect(screen.getByText("Import Loads from CSV")).toBeInTheDocument();
+    }, { timeout: 500 });
+  });
+
+  it("shows optimize route action when searching 'route'", async () => {
+    renderCommandBar();
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    const input = screen.getByPlaceholderText(/search loads, drivers/i);
+    fireEvent.change(input, { target: { value: "route" } });
+    await waitFor(() => {
+      expect(screen.getByText("Optimize Route")).toBeInTheDocument();
+    }, { timeout: 500 });
+  });
 });

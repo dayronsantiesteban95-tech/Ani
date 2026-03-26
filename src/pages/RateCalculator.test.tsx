@@ -75,4 +75,20 @@ describe("RateCalculator", () => {
     render(<RateCalculator />);
     expect(await screen.findByTestId("market-comparison")).toBeInTheDocument();
   });
+
+  it("renders the subtitle", async () => {
+    render(<RateCalculator />);
+    expect(await screen.findByText(/Calculate/i)).toBeInTheDocument();
+  });
+
+  it("renders the page with detailed content when rate cards loaded", async () => {
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "rate_cards") return makeQb({ data: [mockRateCard], error: null });
+      return makeQb();
+    });
+
+    const { container } = render(<RateCalculator />);
+    await screen.findByText("Rate Calculator");
+    expect(container.innerHTML.length).toBeGreaterThan(500);
+  });
 });

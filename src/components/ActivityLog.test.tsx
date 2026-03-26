@@ -117,4 +117,123 @@ describe("ActivityLog", () => {
       expect(screen.queryByPlaceholderText("Search activity...")).not.toBeInTheDocument();
     });
   });
+
+  it("renders activity entries when data is returned", async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const statusEvents = [
+      { id: "evt1", load_id: "l1", new_status: "in_transit", old_status: "assigned", note: "Driver en route", recorded_at: new Date().toISOString() },
+    ];
+    const loads = [
+      { id: "l1", reference_number: "ANK-001", client_name: "Activity Client", status: "in_transit", created_at: new Date().toISOString(), driver_id: "d1", updated_at: new Date().toISOString() },
+    ];
+    const shifts = [
+      { id: "s1", driver_id: "d1", shift_start: new Date().toISOString(), shift_end: null },
+    ];
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "load_status_events") return mockQueryBuilder(statusEvents) as any;
+      if (table === "daily_loads") return mockQueryBuilder(loads) as any;
+      if (table === "driver_shifts") return mockQueryBuilder(shifts) as any;
+      return mockQueryBuilder() as any;
+    });
+
+    render(<ActivityLog />);
+    await waitFor(() => {
+      expect(screen.getByText(/Status changed to in_transit/)).toBeInTheDocument();
+    });
+  });
+
+  it("renders events count badge with correct number", async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const loads = [
+      { id: "l1", reference_number: "ANK-001", client_name: "Count Client", status: "assigned", created_at: new Date().toISOString(), driver_id: null, updated_at: new Date().toISOString() },
+    ];
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "daily_loads") return mockQueryBuilder(loads) as any;
+      return mockQueryBuilder() as any;
+    });
+
+    render(<ActivityLog />);
+    await waitFor(() => {
+      expect(screen.getByText("1 events")).toBeInTheDocument();
+    });
+  });
+
+  it("renders driver assigned entry when load has driver_id", async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const loads = [
+      { id: "l1", reference_number: "ANK-099", client_name: "Assigned Client", status: "in_transit", created_at: new Date().toISOString(), driver_id: "d1", updated_at: new Date().toISOString() },
+    ];
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "daily_loads") return mockQueryBuilder(loads) as any;
+      return mockQueryBuilder() as any;
+    });
+
+    render(<ActivityLog />);
+    await waitFor(() => {
+      expect(screen.getByText("Driver assigned")).toBeInTheDocument();
+    });
+  });
+
+  it("renders shift started entry when shift has no end", async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const shifts = [
+      { id: "s1", driver_id: "d1", shift_start: new Date().toISOString(), shift_end: null },
+    ];
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "driver_shifts") return mockQueryBuilder(shifts) as any;
+      return mockQueryBuilder() as any;
+    });
+
+    render(<ActivityLog />);
+    await waitFor(() => {
+      expect(screen.getByText("Shift started")).toBeInTheDocument();
+    });
+  });
+
+  it("renders shift ended entry when shift has end", async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const shifts = [
+      { id: "s2", driver_id: "d1", shift_start: new Date(Date.now() - 3600000).toISOString(), shift_end: new Date().toISOString() },
+    ];
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "driver_shifts") return mockQueryBuilder(shifts) as any;
+      return mockQueryBuilder() as any;
+    });
+
+    render(<ActivityLog />);
+    await waitFor(() => {
+      expect(screen.getByText("Shift ended")).toBeInTheDocument();
+    });
+  });
+
+  it("filters entries when filter is set to driver", async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const loads = [
+      { id: "l1", reference_number: "ANK-001", client_name: "Load Client", status: "assigned", created_at: new Date().toISOString(), driver_id: null, updated_at: new Date().toISOString() },
+    ];
+    const shifts = [
+      { id: "s1", driver_id: "d1", shift_start: new Date().toISOString(), shift_end: null },
+    ];
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "daily_loads") return mockQueryBuilder(loads) as any;
+      if (table === "driver_shifts") return mockQueryBuilder(shifts) as any;
+      return mockQueryBuilder() as any;
+    });
+
+    render(<ActivityLog />);
+    await waitFor(() => {
+      expect(screen.getByText("Load created")).toBeInTheDocument();
+    });
+    const select = screen.getByRole("combobox") as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: "driver" } });
+    // After filtering to driver, load entries should be hidden
+    expect(screen.queryByText("Load created")).not.toBeInTheDocument();
+    expect(screen.getByText("Shift started")).toBeInTheDocument();
+  });
 });

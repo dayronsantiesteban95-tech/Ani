@@ -123,4 +123,30 @@ describe("Dashboard", () => {
     const chatbot = await screen.findByTestId("ai-chatbot", {}, { timeout: 3000 });
     expect(chatbot).toBeInTheDocument();
   });
+
+  it("renders dashboard with data in stat cards", async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const leads = [
+      { id: "l1", company_name: "Dashboard Lead", stage: "new_lead", created_at: "2026-03-25T00:00:00Z" },
+    ];
+    const tasks = [
+      { id: "t1", title: "Dashboard Task", status: "todo", due_date: "2026-03-25", priority: "high", assigned_to: "u1", created_at: "2026-03-25T00:00:00Z" },
+    ];
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "leads") return makeQb({ data: leads, error: null });
+      if (table === "tasks") return makeQb({ data: tasks, error: null });
+      return makeQb();
+    });
+
+    render(<Dashboard />);
+    await screen.findByText("Dashboard", {}, { timeout: 3000 });
+    expect(screen.getByText("Active Leads")).toBeInTheDocument();
+  });
+
+  it("renders the page with substantial content", async () => {
+    const { container } = render(<Dashboard />);
+    await screen.findByText("Dashboard", {}, { timeout: 3000 });
+    expect(container.innerHTML.length).toBeGreaterThan(500);
+  });
 });

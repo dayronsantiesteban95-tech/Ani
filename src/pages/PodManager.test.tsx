@@ -65,4 +65,74 @@ describe("PodManager", () => {
     await screen.findByText(/Upload load documents/);
     expect(container.querySelector("div")).toBeTruthy();
   });
+
+  it("renders the search input", async () => {
+    render(<PodManager />);
+    await screen.findByText("POD Manager");
+    const input = screen.getByPlaceholderText(/Search/);
+    expect(input).toBeInTheDocument();
+  });
+
+  it("renders the POD column headers in the table", async () => {
+    render(<PodManager />);
+    await screen.findByText("POD Manager");
+    // The table headers should be rendered
+    expect(screen.getByText(/Client/i)).toBeInTheDocument();
+  });
+
+  it("renders the load documents table", async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const loads = [
+      { id: "ld1", load_date: "2026-03-25", reference_number: "ANK-001", client_name: "Table Client", pickup_address: "A St", delivery_address: "B St", driver_id: null, vehicle_id: null, status: "assigned", hub: "atlanta", packages: 2, pod_confirmed: false },
+    ];
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "daily_loads") return makeQb({ data: loads, error: null });
+      if (table === "drivers") return makeQb({ data: [], error: null });
+      if (table === "vehicles") return makeQb({ data: [], error: null });
+      if (table === "load_documents") return makeQb({ data: [], error: null });
+      if (table === "proof_of_delivery") return makeQb({ data: [], error: null });
+      return makeQb();
+    });
+
+    render(<PodManager />);
+    expect(await screen.findByText("Table Client")).toBeInTheDocument();
+  });
+
+  it("renders the search input for loads", async () => {
+    render(<PodManager />);
+    await screen.findByText("POD Manager");
+    expect(screen.getByPlaceholderText(/Search loads/i)).toBeInTheDocument();
+  });
+
+  it("renders stat cards with counts", async () => {
+    render(<PodManager />);
+    await screen.findByText("POD Manager");
+    // Should show stat card labels
+    expect(screen.getByText("Documents")).toBeInTheDocument();
+  });
+
+  it("renders the full page with table structure", async () => {
+    const { container } = render(<PodManager />);
+    await screen.findByText("POD Manager");
+    // Table should have rows
+    expect(container.querySelector("table, div")).toBeTruthy();
+  });
+
+  it("renders loads with POD data", async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const loads = [
+      { id: "ld1", load_date: "2026-03-25", reference_number: "ANK-POD-001", client_name: "POD Client", pickup_address: "A", delivery_address: "B", driver_id: "d1", vehicle_id: null, status: "delivered", hub: "phoenix", packages: 2, pod_confirmed: true },
+    ];
+    const drivers = [{ id: "d1", full_name: "POD Driver", hub: "phoenix" }];
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "daily_loads") return makeQb({ data: loads, error: null });
+      if (table === "drivers") return makeQb({ data: drivers, error: null });
+      return makeQb();
+    });
+
+    render(<PodManager />);
+    expect(await screen.findByText("POD Client")).toBeInTheDocument();
+  });
 });

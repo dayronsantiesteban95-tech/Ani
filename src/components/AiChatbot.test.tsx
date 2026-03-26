@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import AiChatbot from "./AiChatbot";
 
@@ -67,5 +67,36 @@ describe("AiChatbot", () => {
     const buttons = screen.getAllByRole("button");
     const sendBtn = buttons.find((b) => !b.getAttribute("aria-label"));
     expect(sendBtn).not.toBeDisabled();
+  });
+
+  it("clicking a suggestion fills the input and sends", async () => {
+    render(<AiChatbot />);
+    fireEvent.click(screen.getByRole("button", { name: /open ai assistant/i }));
+    const suggestion = screen.getByText("How many leads are in each pipeline stage?");
+    fireEvent.click(suggestion);
+    // After clicking a suggestion, the user message should appear in the chat
+    await waitFor(() => {
+      expect(screen.getByText("How many leads are in each pipeline stage?")).toBeInTheDocument();
+    });
+  });
+
+  it("renders the AI assistant title with correct text", () => {
+    render(<AiChatbot />);
+    fireEvent.click(screen.getByRole("button", { name: /open ai assistant/i }));
+    expect(screen.getByText("Anika AI")).toBeInTheDocument();
+  });
+
+  it("renders the assistant description when opened", () => {
+    render(<AiChatbot />);
+    fireEvent.click(screen.getByRole("button", { name: /open ai assistant/i }));
+    expect(screen.getByText(/Ask about leads/i)).toBeInTheDocument();
+  });
+
+  it("renders the chat panel with correct layout", () => {
+    const { container } = render(<AiChatbot />);
+    fireEvent.click(screen.getByRole("button", { name: /open ai assistant/i }));
+    // Chat panel should have a fixed position
+    const panel = container.querySelector(".fixed");
+    expect(panel).toBeTruthy();
   });
 });

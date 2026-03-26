@@ -52,4 +52,27 @@ describe("SopWiki", () => {
     render(<SopWiki />);
     expect(await screen.findByText(/Standard operating procedures/i)).toBeInTheDocument();
   });
+
+  it("renders articles when data is provided", async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const articles = [
+      { id: "a1", title: "How to Handle Deliveries", category: "general", content: "Step 1: ...", hub: "atlanta", created_by: "u1", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-03-20T00:00:00Z" },
+    ];
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "sop_articles") return makeQb({ data: articles, error: null });
+      return makeQb();
+    });
+
+    render(<SopWiki />);
+    expect(await screen.findByText("How to Handle Deliveries")).toBeInTheDocument();
+  });
+
+  it("renders category filter buttons", async () => {
+    render(<SopWiki />);
+    await screen.findByText("SOP Wiki");
+    // All button should exist
+    const allBtn = screen.getAllByRole("button").find(b => b.textContent?.includes("All"));
+    expect(allBtn).toBeTruthy();
+  });
 });

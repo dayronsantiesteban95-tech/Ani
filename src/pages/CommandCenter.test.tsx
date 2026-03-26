@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 const makeQb = (v: any = { data: [], error: null }) => {
   const qb = new Proxy({}, { get: (_, p) => p === "then" ? ((r: any) => Promise.resolve(v).then(r)) : vi.fn().mockReturnValue(qb) }) as any;
@@ -6,8 +6,8 @@ const makeQb = (v: any = { data: [], error: null }) => {
 };
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: vi.fn(() => makeQb()), channel: vi.fn(() => ({ on: vi.fn().mockReturnThis(), subscribe: vi.fn() })), removeChannel: vi.fn() } }));
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: { id: "u1" }, loading: false }) }));
-vi.mock("@/hooks/useAlerts", () => ({ useAlerts: () => ({ alerts: [], stats: { total: 0 }, resolveAlert: vi.fn(), dismissAll: vi.fn() }) }));
-vi.mock("@/hooks/useRealtimeDriverMap", () => ({ useRealtimeDriverMap: () => ({ drivers: [], loading: false }) }));
+vi.mock("@/hooks/useAlerts", () => ({ useAlerts: () => ({ alerts: [], stats: { total: 0, critical: 0, warning: 0, info: 0 }, resolveAlert: vi.fn(), dismissAll: vi.fn(), acknowledgeAlert: vi.fn(), loading: false }) }));
+vi.mock("@/hooks/useRealtimeDriverMap", () => ({ useRealtimeDriverMap: () => ({ drivers: [], loading: false, refresh: vi.fn(), pollActive: false }) }));
 vi.mock("@/components/LoadDetailPanel", () => ({ default: () => null }));
 vi.mock("@/components/LiveDriverMap", () => ({ default: () => <div data-testid="map" /> }));
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));
@@ -22,5 +22,11 @@ describe("CommandCenter", () => {
   it("renders without error when alerts are empty", async () => {
     const { container } = render(<CommandCenter />);
     await waitFor(() => expect(container.innerHTML.length).toBeGreaterThan(0));
+  });
+  it("renders the page with meaningful content", async () => {
+    const { container } = render(<CommandCenter />);
+    await waitFor(() => expect(container.innerHTML.length).toBeGreaterThan(200));
+    // The rendered HTML should contain elements related to the command center
+    expect(container.querySelector("div")).toBeTruthy();
   });
 });

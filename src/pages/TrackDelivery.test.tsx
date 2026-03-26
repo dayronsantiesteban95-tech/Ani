@@ -87,4 +87,21 @@ describe("TrackDelivery", () => {
     render(<TrackDelivery />);
     expect(screen.getByText("Format: ANK-XXXXXX")).toBeInTheDocument();
   });
+
+  it("renders the Anika Logistics branding", () => {
+    render(<TrackDelivery />);
+    const elements = screen.getAllByText(/Anika Logistics/i);
+    expect(elements.length).toBeGreaterThan(0);
+  });
+
+  it("renders the empty state with prompt text", () => {
+    render(<TrackDelivery />);
+    expect(screen.getByText("Enter your tracking number above to get started")).toBeInTheDocument();
+  });
+
+  it("renders the tracking page with search functionality", () => {
+    render(<TrackDelivery />);
+    expect(screen.getByPlaceholderText("ANK-XXXXXX")).toBeInTheDocument();
+    expect(screen.getByText("Track")).toBeInTheDocument();
+  });
 });

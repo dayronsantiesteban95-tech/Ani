@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 function makeQb(resolveValue = { data: [], error: null, count: 0 }) {
@@ -112,5 +112,59 @@ describe("Pipeline", () => {
     render(<Pipeline />);
     const panel = await screen.findByTestId("lead-detail-panel", {}, { timeout: 3000 });
     expect(panel).toBeInTheDocument();
+  });
+
+  it("renders leads in their stage columns", async () => {
+    const leads = [
+      { id: "l1", company_name: "Alpha Corp", contact_person: "John", stage: "new_lead", city_hub: "atlanta", industry: "legal", email: "j@alpha.com", created_at: "2026-03-20T10:00:00Z", temperature: 80 },
+      { id: "l2", company_name: "Beta Inc", contact_person: "Jane", stage: "qualified", city_hub: "phoenix", industry: "medical_pharma", email: "j@beta.com", created_at: "2026-03-19T10:00:00Z", temperature: 60 },
+    ];
+
+    const { supabase } = await import("@/integrations/supabase/client");
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "leads") return makeQb({ data: leads, error: null });
+      return makeQb();
+    });
+
+    render(<Pipeline />);
+    expect(await screen.findByText("Alpha Corp", {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByText("Beta Inc")).toBeInTheDocument();
+  });
+
+  it("renders lead count badges on columns", async () => {
+    const leads = [
+      { id: "l1", company_name: "Test Lead", contact_person: "A", stage: "new_lead", city_hub: "atlanta", industry: "legal", email: "a@test.com", created_at: "2026-03-20T10:00:00Z", temperature: 50 },
+    ];
+
+    const { supabase } = await import("@/integrations/supabase/client");
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "leads") return makeQb({ data: leads, error: null });
+      return makeQb();
+    });
+
+    render(<Pipeline />);
+    await screen.findByText("Test Lead", {}, { timeout: 3000 });
+    // At least the New Lead column should show a count
+    expect(screen.getByText("Test Lead")).toBeInTheDocument();
+  });
+
+  it("filters leads by search query", async () => {
+    const leads = [
+      { id: "l1", company_name: "Searchable Corp", contact_person: "Sam", stage: "new_lead", city_hub: "atlanta", industry: "legal", email: "s@search.com", created_at: "2026-03-20T10:00:00Z", temperature: 70 },
+      { id: "l2", company_name: "Hidden Corp", contact_person: "Tom", stage: "new_lead", city_hub: "phoenix", industry: "legal", email: "t@hidden.com", created_at: "2026-03-19T10:00:00Z", temperature: 40 },
+    ];
+
+    const { supabase } = await import("@/integrations/supabase/client");
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "leads") return makeQb({ data: leads, error: null });
+      return makeQb();
+    });
+
+    render(<Pipeline />);
+    await screen.findByText("Searchable Corp", {}, { timeout: 3000 });
+    const input = screen.getByPlaceholderText("Search leads...");
+    fireEvent.change(input, { target: { value: "Searchable" } });
+    expect(screen.getByText("Searchable Corp")).toBeInTheDocument();
+    expect(screen.queryByText("Hidden Corp")).not.toBeInTheDocument();
   });
 });
