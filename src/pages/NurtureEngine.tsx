@@ -6,6 +6,8 @@ import { createSequenceForLead } from "@/lib/sequenceUtils";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/PageSkeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -176,6 +178,7 @@ export default function NurtureEngine() {
   const { user } = useAuth();
   const { isOwner } = useUserRole();
   const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
 
   // Settings
   const [settings, setSettings] = useState<NurtureSettings>(DEFAULT_SETTINGS);
@@ -340,11 +343,13 @@ export default function NurtureEngine() {
   }, []);
 
   useEffect(() => {
-    fetchSettings();
-    fetchFollowUps();
-    fetchTracker();
-    fetchTemplates();
-    fetchAttention();
+    Promise.all([
+      fetchSettings(),
+      fetchFollowUps(),
+      fetchTracker(),
+      fetchTemplates(),
+      fetchAttention(),
+    ]).finally(() => setLoading(false));
   }, [fetchSettings, fetchFollowUps, fetchTracker, fetchTemplates, fetchAttention]);
 
   // ── Find matching template ──
@@ -920,6 +925,18 @@ export default function NurtureEngine() {
       </Popover>
     );
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-in">
+        <div>
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-80 mt-2" />
+        </div>
+        <TableSkeleton rows={6} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 animate-in">

@@ -29,6 +29,7 @@ import {
   Pencil, Trash2, Search, Crosshair, CalendarIcon, Truck,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/PageSkeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import LeadDetailPanel from "@/components/LeadDetailPanel";
@@ -248,21 +249,12 @@ export default function Pipeline() {
       <div className="space-y-4 animate-in">
         <div className="flex items-center justify-between">
           <div>
-            <Skeleton className="h-8 w-48 shimmer" />
-            <Skeleton className="h-4 w-64 mt-2 shimmer" />
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-64 mt-2" />
           </div>
-          <Skeleton className="h-10 w-28 shimmer" />
+          <Skeleton className="h-10 w-28" />
         </div>
-        <div className="flex gap-4 min-h-[60vh] overflow-x-auto pb-4">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="bg-muted/40 rounded-2xl p-3 min-w-[230px] flex-1 space-y-3">
-              <Skeleton className="h-5 w-24 shimmer" />
-              {Array.from({ length: 3 }).map((_, j) => (
-                <Skeleton key={j} className="h-28 w-full rounded-xl shimmer" />
-              ))}
-            </div>
-          ))}
-        </div>
+        <TableSkeleton rows={6} />
       </div>
     );
   }

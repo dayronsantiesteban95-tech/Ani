@@ -27,6 +27,7 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatCardsSkeleton, TableSkeleton } from "@/components/PageSkeleton";
 import {
     Truck, Plus, Pencil, Trash2, Wrench, Users, AlertTriangle,
     CheckCircle, Gauge, Calendar, Shield, Fuel,
@@ -252,10 +253,13 @@ export default function FleetTracker() {
     const vehName = (id: string) => vehicles.find((v) => v.id === id)?.vehicle_name ?? "—";
 
     if (loading) return (
-        <div className="space-y-4 animate-in">
-            <Skeleton className="h-8 w-48" />
-            <div className="grid grid-cols-4 gap-4">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div>
-            <Skeleton className="h-96 rounded-2xl" />
+        <div className="space-y-6 animate-in">
+            <div>
+                <Skeleton className="h-8 w-48" />
+                <Skeleton className="h-4 w-72 mt-2" />
+            </div>
+            <StatCardsSkeleton count={7} />
+            <TableSkeleton rows={6} />
         </div>
     );
 
