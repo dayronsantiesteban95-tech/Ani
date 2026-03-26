@@ -107,20 +107,20 @@ export default function DriverPortal() {
     useEffect(() => {
         if (!user) return;
         (async () => {
-            const { data } = await supabase
+            const { data, error: profileError } = await supabase
                 .from("drivers")
                 .select("id, full_name, hub, status")
                 .eq("user_id", user.id)
                 .single();
-            if (data) {
-                setDriver(data as unknown as DriverProfile);
+            if (!profileError && data) {
+                setDriver(data as DriverProfile);
                 // Check for active shift
                 const { data: shift } = await supabase
                     .from("driver_shifts")
                     .select("id")
                     .eq("driver_id", data.id)
                     .is("shift_end", null)
-                    .single() as unknown as { data: { id: string } | null };
+                    .single();
                 if (shift) {
                     setShiftId(shift.id);
                     setOnDuty(true);
@@ -134,13 +134,13 @@ export default function DriverPortal() {
     const fetchLoads = useCallback(async () => {
         if (!driver) return;
         const today = new Date().toISOString().split("T")[0];
-        const { data } = await supabase
+        const { data, error: loadsError } = await supabase
             .from("daily_loads")
             .select("id, reference_number, client_name, pickup_address, delivery_address, status, packages, service_type, start_time, end_time, wait_time_minutes, comments")
             .eq("driver_id", driver.id)
             .eq("load_date", today)
             .order("start_time", { ascending: true });
-        if (data) setLoads(data as DriverLoad[]);
+        if (!loadsError && data) setLoads(data as DriverLoad[]);
     }, [driver]);
 
     useEffect(() => { fetchLoads(); }, [fetchLoads]);
@@ -412,7 +412,7 @@ export default function DriverPortal() {
                                                         variant="outline" size="sm"
                                                         className="flex-1 h-9 text-xs gap-1.5 rounded-lg"
                                                         onClick={() => {
-                                                            const addr = encodeURIComponent(load.delivery_address!);
+                                                            const addr = encodeURIComponent(load.delivery_address);
                                                             window.open(`https://www.google.com/maps/dir/?api=1&destination=${addr}`, "_blank");
                                                         }}
                                                     >
