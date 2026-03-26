@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { env } from "@/lib/env";
 import { getAnikaTemplates } from "@/lib/anikaTemplates";
 import { createSequenceForLead } from "@/lib/sequenceUtils";
 import { useAuth } from "@/hooks/useAuth";
@@ -695,7 +696,7 @@ export default function NurtureEngine() {
         try {
           const subject = replaceTemplateVars(tpl.subject, lead);
           const body = replaceTemplateVars(tpl.body, lead);
-          const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-outreach-email`, {
+          const res = await fetch(`${env.SUPABASE_URL}/functions/v1/send-outreach-email`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -785,7 +786,7 @@ export default function NurtureEngine() {
       const subject = replaceTemplateVars(template.subject, lead);
       const body = replaceTemplateVars(template.body, lead);
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-outreach-email`, {
+      const res = await fetch(`${env.SUPABASE_URL}/functions/v1/send-outreach-email`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

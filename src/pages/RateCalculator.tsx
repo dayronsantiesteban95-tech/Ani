@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { env } from "@/lib/env";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { CITY_HUBS } from "@/lib/constants";
@@ -518,7 +519,7 @@ export default function RateCalculator() {
 
             const { data: { session } } = await supabase.auth.getSession();
             const emailTotal = winClientMode ? quote.total * (1 - discountPct / 100) : quote.total;
-            const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL || "https://vdsknsypobnutnqcafre.supabase.co"}/functions/v1/send-outreach-email`, {
+            const res = await fetch(`${env.SUPABASE_URL}/functions/v1/send-outreach-email`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

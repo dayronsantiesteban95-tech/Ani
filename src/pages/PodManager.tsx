@@ -108,7 +108,8 @@ const LOAD_STATUS_COLORS: Record<string, string> = {
     failed: "bg-red-500/15 text-red-700 dark:text-red-400",
 };
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+import { env } from "@/lib/env";
+const SUPABASE_URL = env.SUPABASE_URL;
 const STORAGE_BUCKET = "pod-files";
 
 function getStorageUrl(path: string): string {
@@ -180,6 +181,11 @@ export default function PodManager() {
             supabase.from("load_documents").select("*").order("created_at", { ascending: false }),
             supabase.from("proof_of_delivery").select("*").order("created_at", { ascending: false }),
         ]);
+        if (loadsRes.error) console.error("fetch daily_loads failed:", loadsRes.error.message);
+        if (driversRes.error) console.error("fetch drivers failed:", driversRes.error.message);
+        if (vehiclesRes.error) console.error("fetch vehicles failed:", vehiclesRes.error.message);
+        if (docsRes.error) console.error("fetch load_documents failed:", docsRes.error.message);
+        if (podsRes.error) console.error("fetch proof_of_delivery failed:", podsRes.error.message);
         if (loadsRes.data) setLoads(loadsRes.data as Load[]);
         if (driversRes.data) setDrivers(driversRes.data as Driver[]);
         if (vehiclesRes.data) setVehicles(vehiclesRes.data as Vehicle[]);
@@ -267,7 +273,8 @@ export default function PodManager() {
     // ── Delete Document ──────────────────────────────
     const handleDeleteDoc = async (doc: LoadDocument) => {
         await supabase.storage.from(STORAGE_BUCKET).remove([doc.file_path]);
-        await supabase.from("load_documents").delete().eq("id", doc.id);
+        const { error } = await supabase.from("load_documents").delete().eq("id", doc.id);
+        if (error) { console.error("delete load_documents failed:", error.message); return; }
         toast({ title: "Document deleted" });
         fetchData();
     };
@@ -412,7 +419,8 @@ export default function PodManager() {
             }
 
             // Mark load as POD confirmed
-            await supabase.from("daily_loads").update({ pod_confirmed: true }).eq("id", selectedLoad.id);
+            const { error: podConfirmErr } = await supabase.from("daily_loads").update({ pod_confirmed: true }).eq("id", selectedLoad.id);
+            if (podConfirmErr) throw podConfirmErr;
 
             toast({ title: "POD Submitted!", description: "Proof of delivery has been recorded." });
             setShowPodDialog(false);
@@ -435,26 +443,29 @@ export default function PodManager() {
 
     // ── Verify / Reject POD ──────────────────────────
     const handleVerifyPod = async (pod: ProofOfDelivery) => {
-        await supabase.from("proof_of_delivery").update({
+        const { error } = await supabase.from("proof_of_delivery").update({
             status: "verified",
             verified_by: user?.id,
             verified_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
         }).eq("id", pod.id);
+        if (error) { console.error("verify pod failed:", error.message); return; }
         toast({ title: "POD Verified ✓" });
         fetchData();
     };
 
     const handleRejectPod = async (pod: ProofOfDelivery, reason: string) => {
-        await supabase.from("proof_of_delivery").update({
+        const { error: rejectErr } = await supabase.from("proof_of_delivery").update({
             status: "rejected",
             rejection_reason: reason,
             verified_by: user?.id,
             verified_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
         }).eq("id", pod.id);
+        if (rejectErr) { console.error("reject pod failed:", rejectErr.message); return; }
         // Un-confirm POD on the load
-        await supabase.from("daily_loads").update({ pod_confirmed: false }).eq("id", pod.load_id);
+        const { error: unconfirmErr } = await supabase.from("daily_loads").update({ pod_confirmed: false }).eq("id", pod.load_id);
+        if (unconfirmErr) { console.error("unconfirm pod failed:", unconfirmErr.message); return; }
         toast({ title: "POD Rejected", variant: "destructive" });
         fetchData();
     };
