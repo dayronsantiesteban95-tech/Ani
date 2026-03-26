@@ -42,4 +42,14 @@ describe("SopWiki", () => {
       await screen.findByText(/no articles found/i),
     ).toBeInTheDocument();
   });
+
+  it("renders the search input", async () => {
+    render(<SopWiki />);
+    expect(await screen.findByPlaceholderText(/search/i)).toBeInTheDocument();
+  });
+
+  it("renders the subtitle text", async () => {
+    render(<SopWiki />);
+    expect(await screen.findByText(/Standard operating procedures/i)).toBeInTheDocument();
+  });
 });

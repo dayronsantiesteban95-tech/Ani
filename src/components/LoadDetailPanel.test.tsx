@@ -13,4 +13,16 @@ describe("LoadDetailPanel", () => {
     render(<LoadDetailPanel load={load} open={true} onClose={vi.fn()} onUpdate={vi.fn()} />);
     expect(screen.getByText("ANK-001")).toBeInTheDocument();
   });
+
+  it("renders client name when provided", () => {
+    const load = { id: "1", reference_number: "ANK-002", client_name: "Acme Corp", status: "assigned" };
+    render(<LoadDetailPanel load={load} open={true} onClose={vi.fn()} onUpdate={vi.fn()} />);
+    expect(screen.getByText("Acme Corp")).toBeInTheDocument();
+  });
+
+  it("renders the status badge for the load", () => {
+    const load = { id: "1", reference_number: "ANK-003", client_name: "Test", status: "pending", revenue: 500, driver_pay: 200, fuel_cost: 50 };
+    render(<LoadDetailPanel load={load} open={true} onClose={vi.fn()} onUpdate={vi.fn()} />);
+    expect(screen.getByText("Pending")).toBeInTheDocument();
+  });
 });

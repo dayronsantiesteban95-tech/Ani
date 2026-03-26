@@ -56,6 +56,8 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+const { supabase } = await import("@/integrations/supabase/client");
+
 describe("TrackDelivery", () => {
   it("renders the Track Your Delivery heading", () => {
     render(<TrackDelivery />);
@@ -74,5 +76,15 @@ describe("TrackDelivery", () => {
     expect(
       screen.getByText("Enter your tracking number above to get started")
     ).toBeInTheDocument();
+  });
+
+  it("renders the search input with ANK-XXXXXX placeholder", () => {
+    render(<TrackDelivery />);
+    expect(screen.getByPlaceholderText("ANK-XXXXXX")).toBeInTheDocument();
+  });
+
+  it("renders the format hint text", () => {
+    render(<TrackDelivery />);
+    expect(screen.getByText("Format: ANK-XXXXXX")).toBeInTheDocument();
   });
 });

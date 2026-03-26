@@ -107,4 +107,14 @@ describe("ActivityLog", () => {
     fireEvent.change(select, { target: { value: "driver" } });
     expect(select.value).toBe("driver");
   });
+
+  it("renders compact mode with minimal UI", async () => {
+    render(<ActivityLog compact />);
+    // Compact mode should still show the heading
+    expect(screen.getByText("Activity Log")).toBeInTheDocument();
+    // But not the search input
+    await waitFor(() => {
+      expect(screen.queryByPlaceholderText("Search activity...")).not.toBeInTheDocument();
+    });
+  });
 });

@@ -38,6 +38,8 @@ vi.mock("@/hooks/useDriverGPS", () => ({
 }));
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));
 
+const { supabase } = await import("@/integrations/supabase/client");
+
 describe("DriverPortal", () => {
   it("shows loading text on initial render", () => {
     render(<DriverPortal />);
@@ -54,5 +56,47 @@ describe("DriverPortal", () => {
     expect(
       await screen.findByText(/your account isn't linked to a driver profile/i),
     ).toBeInTheDocument();
+  });
+
+  it("renders the driver portal with driver name when profile is found", async () => {
+    // Override mock: the drivers table call with .single() returns a driver
+    const driverData = { id: "d1", full_name: "Alice Smith", hub: "phoenix", status: "active" };
+    let callIdx = 0;
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      const qb = makeQb({ data: null, error: null });
+      if (table === "drivers" && callIdx === 0) {
+        callIdx++;
+        // Override the final thenable to return a single driver
+        const singleQb = makeQb({ data: driverData, error: null });
+        return singleQb;
+      }
+      if (table === "driver_shifts") {
+        return makeQb({ data: null, error: { code: "PGRST116", message: "no rows" } });
+      }
+      if (table === "daily_loads") {
+        return makeQb({ data: [], error: null });
+      }
+      return qb;
+    });
+
+    render(<DriverPortal />);
+    expect(await screen.findByText(/Alice Smith/i)).toBeInTheDocument();
+  });
+
+  it("renders the shift status section when profile exists", async () => {
+    const driverData = { id: "d1", full_name: "Alice Smith", hub: "phoenix", status: "active" };
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "drivers") {
+        return makeQb({ data: driverData, error: null });
+      }
+      if (table === "driver_shifts") {
+        return makeQb({ data: null, error: { code: "PGRST116", message: "no rows" } });
+      }
+      return makeQb({ data: [], error: null });
+    });
+
+    render(<DriverPortal />);
+    // Should show shift status text ("Off Duty" since no active shift)
+    expect(await screen.findByText(/Off Duty/)).toBeInTheDocument();
   });
 });
